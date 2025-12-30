@@ -1,0 +1,801 @@
+{
+	"info": {
+		"_postman_id": "70b8fd5a-6896-4277-b2da-52f80fa2a7a3",
+		"name": "Backend",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "49808937",
+		"_collection_link": "https://mailsfinder-team.postman.co/workspace/MailsFinder~e5303461-6482-4432-b4a8-1b3c164b2a55/collection/37018038-70b8fd5a-6896-4277-b2da-52f80fa2a7a3?action=share&source=collection_link&creator=49808937"
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "signup",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"full_name\":\"test\",\n    \"password\":\"123456\",\n    \"email\":\"adwaithrrajesh.dev@gmail.com\"\n} ",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{URL}}/api/user/auth/signup",
+							"host": [
+								"{{URL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"auth",
+								"signup"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "login",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"password\":\"123456\",\n    \"email\":\"test@2.com\"\n} ",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{URL}}/api/user/auth/login",
+							"host": [
+								"{{URL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"auth",
+								"login"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "refresh",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "refreshtoken",
+								"value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2OTBhMzkwYWJmN2ExZWJiOWFhZTk3YWIiLCJlbWFpbCI6ImFkd2FpdGgxMTNlQGdtYWlsLmNvbSIsImZ1bGxfbmFtZSI6InRlc3QiLCJwYXNzd29yZCI6IiRhcmdvbjJpZCR2PTE5JG09NjU1MzYsdD0zLHA9NCRWZkphWlZ1ZUcySVU1SHJ2MHpoKzVBJEt1M21IQWovU0lyY1FFMU1jbTFrbWZZQURsYkE0Syt3ZXM3VVlONmNLRjgiLCJlbWFpbF92ZXJpZmllZCI6ZmFsc2UsImNyZWF0ZWRBdCI6IjIwMjUtMTEtMDRUMTc6MzQ6MDIuNTgyWiIsInVwZGF0ZWRBdCI6IjIwMjUtMTEtMDRUMTc6MzQ6MDIuNTgyWiIsIl9fdiI6MCwiaWF0IjoxNzYyMjc4MzY3LCJleHAiOjE3NjI4ODMxNjd9.FQQq43NKM1CnLSadKEs1-E-mPhS_MMgFabpKKiM8ZxI",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "{{LOCAL_URL}}/api/user/auth/refresh",
+							"host": [
+								"{{LOCAL_URL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"auth",
+								"refresh"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Profile",
+			"item": [
+				{
+					"name": "getProfile",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTJiMmQ0NWMyODdmN2ExYTQzNTAxOWQiLCJlbWFpbCI6InRlc3RAMi5jb20iLCJmdWxsX25hbWUiOiJBZHdhaXRoIFIgUmFqZXNoIiwiZW1haWxfdmVyaWZpZWQiOmZhbHNlLCJpYXQiOjE3NjU0MTg1MjMsImV4cCI6MTc2NjAyMzMyM30.Ro9DgTCE88eiFg_9aWUng7bPZ9xJYRIoL3Kip4GigPI",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "{{URL}}/api/user/profile/getProfile",
+							"host": [
+								"{{URL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"profile",
+								"getProfile"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "updateProfile",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{USER_TOKEN}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"full_name\":\"test name\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{LOCAL_URL}}/api/user/profile/updateProfile",
+							"host": [
+								"{{LOCAL_URL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"profile",
+								"updateProfile"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "credits",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{USER_TOKEN}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{LOCAL_URL}}/api/user/profile/getCredits",
+							"host": [
+								"{{LOCAL_URL}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"profile",
+								"getCredits"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "API-Keys",
+			"item": [
+				{
+					"name": "Email",
+					"item": [
+						{
+							"name": "findEmail",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "{{API_KEY}}",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "    {\n        \"domain\": \"gmail.com\",\n        \"first_name\": \"adwaith\",\n        \"last_name\": \"rrajesh\"\n    }",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{LOCAL_URL}}/api/access-key/email/findEmail",
+									"host": [
+										"{{LOCAL_URL}}"
+									],
+									"path": [
+										"api",
+										"access-key",
+										"email",
+										"findEmail"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "findBulkEmail",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "{{API_KEY}}",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "[\n    {\n        \"domain\": \"gmail.com\",\n        \"first_name\": \"adwaithrrajesh\",\n        \"last_name\": \"316\"\n    },\n    {\n        \"domain\": \"gmail.com\",\n        \"first_name\": \"adwaithrrajesh\",\n        \"last_name\": \"46\"\n    }\n]",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{LOCAL_URL}}/api/access-key/email/findBulkEmail",
+									"host": [
+										"{{LOCAL_URL}}"
+									],
+									"path": [
+										"api",
+										"access-key",
+										"email",
+										"findBulkEmail"
+									],
+									"query": [
+										{
+											"key": "",
+											"value": null,
+											"disabled": true
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "verifyBulkEmail",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "{{API_KEY}}",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"emails\":[\"adwaithrrajesh46@gmail.com\",\"krish@flowxperia.com\"]\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{LOCAL_URL}}/api/access-key/email/verifyBulkEmail",
+									"host": [
+										"{{LOCAL_URL}}"
+									],
+									"path": [
+										"api",
+										"access-key",
+										"email",
+										"verifyBulkEmail"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "verifyEmail",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "{{API_KEY}}",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"email\": \"alensanthosh164@gmail.com\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{LOCAL_URL}}/api/access-key/email/verifyEmail",
+									"host": [
+										"{{LOCAL_URL}}"
+									],
+									"path": [
+										"api",
+										"access-key",
+										"email",
+										"verifyEmail"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "createApiKey",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{USER_TOKEN}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"keyName\":\"test\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{LOCAL_URL}}/api/api-key/createApiKey",
+							"host": [
+								"{{LOCAL_URL}}"
+							],
+							"path": [
+								"api",
+								"api-key",
+								"createApiKey"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "getApiKeys",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{USER_TOKEN}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{LOCAL_URL}}/api/api-key/getApiKeys",
+							"host": [
+								"{{LOCAL_URL}}"
+							],
+							"path": [
+								"api",
+								"api-key",
+								"getApiKeys"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "deactivateAPIKey",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{USER_TOKEN}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{LOCAL_URL}}/api/api-key/deactivateAPIKey/690f4b1c48d2fe48fee5bb1f",
+							"host": [
+								"{{LOCAL_URL}}"
+							],
+							"path": [
+								"api",
+								"api-key",
+								"deactivateAPIKey",
+								"690f4b1c48d2fe48fee5bb1f"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Email",
+			"item": [
+				{
+					"name": "findEmail",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{USER_TOKEN}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "    {\n        \"domain\": \"gmail.com\",\n        \"first_name\": \"adwaith\",\n        \"last_name\": \"rrajesh\"\n    }",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{LOCAL_URL}}/api/email/findEmail",
+							"host": [
+								"{{LOCAL_URL}}"
+							],
+							"path": [
+								"api",
+								"email",
+								"findEmail"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "findBulkEmail",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{USER_TOKEN}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "[\n    {\n        \"domain\": \"gmail.com\",\n        \"first_name\": \"adwaithrrajesh\",\n        \"last_name\": \"316\"\n    },\n    {\n        \"domain\": \"gmail.com\",\n        \"first_name\": \"adwaithrrajesh\",\n        \"last_name\": \"46\"\n    }\n]",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{LOCAL_URL}}/api/email/findBulkEmail",
+							"host": [
+								"{{LOCAL_URL}}"
+							],
+							"path": [
+								"api",
+								"email",
+								"findBulkEmail"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "verifyBulkEmail",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{USER_TOKEN}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"emails\":[\"adwaithrrajesh46@gmail.com\",\"krish@flowxperia.com\"]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{LOCAL_URL}}/api/email/verifyBulkEmail",
+							"host": [
+								"{{LOCAL_URL}}"
+							],
+							"path": [
+								"api",
+								"email",
+								"verifyBulkEmail"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "verifyEmail",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{USER_TOKEN}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"alensanthosh164@gmail.com\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{LOCAL_URL}}/api/email/verifyEmail",
+							"host": [
+								"{{LOCAL_URL}}"
+							],
+							"path": [
+								"api",
+								"email",
+								"verifyEmail"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Transaction",
+			"item": [
+				{
+					"name": "getTransactionsByUserId",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{USER_TOKEN}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "    {\n        \"domain\": \"gmail.com\",\n        \"first_name\": \"adwaith\",\n        \"last_name\": \"rrajesh\"\n    }"
+						},
+						"url": {
+							"raw": "{{LOCAL_URL}}/api/transaction/getMyTransaction",
+							"host": [
+								"{{LOCAL_URL}}"
+							],
+							"path": [
+								"api",
+								"transaction",
+								"getMyTransaction"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "payment",
+			"item": [
+				{
+					"name": "createPayment",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{USER_TOKEN}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "[\n    {\n        \"domain\": \"gmail.com\",\n        \"first_name\": \"Alen\",\n        \"last_name\": \"Santhosh164\"\n    }\n]"
+						},
+						"url": {
+							"raw": "{{LOCAL_URL}}/api/transaction/payment/createPayment",
+							"host": [
+								"{{LOCAL_URL}}"
+							],
+							"path": [
+								"api",
+								"transaction",
+								"payment",
+								"createPayment"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "WEBHOOK",
+			"item": [
+				{
+					"name": "createSubscription",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"data\": {\n    \"id\": \"1703524\",\n    \"type\": \"subscriptions\",\n    \"links\": {\n      \"self\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524\"\n    },\n    \"attributes\": {\n      \"urls\": {\n        \"customer_portal\": \"https://datapulsify.lemonsqueezy.com/billing?expires=1765238391&test_mode=0&user=183851&signature=b601db8ed7099ec0ac31992241d5c4542351c558bbd9c497c5ea2a1cc284712a\",\n        \"update_payment_method\": \"https://datapulsify.lemonsqueezy.com/subscription/1703524/payment-details?expires=1765238391&signature=1187574eb9abcc751d486f45b2abd706618c6ac4f555174f52ff7d5c0977d8a8\",\n        \"customer_portal_update_subscription\": \"https://datapulsify.lemonsqueezy.com/billing/1703524/update?expires=1765238391&user=183851&signature=07ed1ce94d6712ea3816b0af8a27d19b2ecb4dc4286cecb74f13566369fd7a24\"\n      },\n      \"pause\": null,\n      \"status\": \"active\",\n      \"ends_at\": null,\n      \"order_id\": 7011429,\n      \"store_id\": 192616,\n      \"cancelled\": false,\n      \"renews_at\": \"2026-01-08T17:59:43.000000Z\",\n      \"test_mode\": false,\n      \"user_name\": \"Harsh Shah\",\n      \"card_brand\": \"visa\",\n      \"created_at\": \"2025-12-08T17:59:45.000000Z\",\n      \"product_id\": 628486,\n      \"updated_at\": \"2025-12-08T17:59:51.000000Z\",\n      \"user_email\": \"harshshah419@gmail.com\",\n      \"variant_id\": 985038,\n      \"customer_id\": 6697013,\n      \"product_name\": \"MailsFinder\",\n      \"variant_name\": \"Agency\",\n      \"order_item_id\": 6950606,\n      \"trial_ends_at\": null,\n      \"billing_anchor\": 8,\n      \"card_last_four\": \"4524\",\n      \"status_formatted\": \"Active\",\n      \"payment_processor\": \"stripe\",\n      \"first_subscription_item\": {\n        \"id\": 5702421,\n        \"price_id\": 1688221,\n        \"quantity\": 1,\n        \"created_at\": \"2025-12-08T17:59:51.000000Z\",\n        \"updated_at\": \"2025-12-08T17:59:51.000000Z\",\n        \"is_usage_based\": false,\n        \"subscription_id\": 1703524\n      }\n    },\n    \"relationships\": {\n      \"order\": {\n        \"links\": {\n          \"self\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/relationships/order\",\n          \"related\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/order\"\n        }\n      },\n      \"store\": {\n        \"links\": {\n          \"self\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/relationships/store\",\n          \"related\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/store\"\n        }\n      },\n      \"product\": {\n        \"links\": {\n          \"self\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/relationships/product\",\n          \"related\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/product\"\n        }\n      },\n      \"variant\": {\n        \"links\": {\n          \"self\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/relationships/variant\",\n          \"related\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/variant\"\n        }\n      },\n      \"customer\": {\n        \"links\": {\n          \"self\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/relationships/customer\",\n          \"related\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/customer\"\n        }\n      },\n      \"order-item\": {\n        \"links\": {\n          \"self\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/relationships/order-item\",\n          \"related\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/order-item\"\n        }\n      },\n      \"subscription-items\": {\n        \"links\": {\n          \"self\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/relationships/subscription-items\",\n          \"related\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/subscription-items\"\n        }\n      },\n      \"subscription-invoices\": {\n        \"links\": {\n          \"self\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/relationships/subscription-invoices\",\n          \"related\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/subscription-invoices\"\n        }\n      }\n    }\n  },\n  \"meta\": {\n    \"test_mode\": false,\n    \"event_name\": \"subscription_created\",\n    \"webhook_id\": \"13e9b2bc-4cd5-4201-b3a4-fc04d9404a1d\",\n    \"custom_data\": {\n      \"user_id\": \"690a44fb9eaa4914911d32bb\",\n      \"plan_name\": \"Agency\",\n      \"find_credits\": \"50000\",\n      \"verify_credits\": \"50000\"\n    }\n  }\n}\n",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{LOCAL_URL}}/api/transaction/lemonsqeezy/webhook/createSubscription",
+							"host": [
+								"{{LOCAL_URL}}"
+							],
+							"path": [
+								"api",
+								"transaction",
+								"lemonsqeezy",
+								"webhook",
+								"createSubscription"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "cancelSubscription",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"data\": {\n    \"id\": \"1703524\",\n    \"type\": \"subscriptions\",\n    \"links\": {\n      \"self\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524\"\n    },\n    \"attributes\": {\n      \"urls\": {\n        \"customer_portal\": \"https://datapulsify.lemonsqueezy.com/billing?expires=1765240100&test_mode=0&user=183851&signature=b8e608522eb45110f94dcc58d1fda6e99b4e30834d671be78599425a7c89b88f\",\n        \"update_payment_method\": \"https://datapulsify.lemonsqueezy.com/subscription/1703524/payment-details?expires=1765240100&signature=46bd036ce859d52b89200185875ecd3261328ef56f0eb33320e51e7fea91e2c9\",\n        \"customer_portal_update_subscription\": \"https://datapulsify.lemonsqueezy.com/billing/1703524/update?expires=1765240100&user=183851&signature=de43a0d764f84c9962f98ea1d6701b849d703edaabd288e2283add57b8f9af61\"\n      },\n      \"pause\": null,\n      \"status\": \"cancelled\",\n      \"ends_at\": \"2026-01-08T17:59:43.000000Z\",\n      \"order_id\": 7011429,\n      \"store_id\": 192616,\n      \"cancelled\": true,\n      \"renews_at\": \"2026-01-08T17:59:43.000000Z\",\n      \"test_mode\": false,\n      \"user_name\": \"Harsh Shah\",\n      \"card_brand\": \"visa\",\n      \"created_at\": \"2025-12-08T17:59:45.000000Z\",\n      \"product_id\": 628486,\n      \"updated_at\": \"2025-12-08T18:28:20.000000Z\",\n      \"user_email\": \"harshshah419@gmail.com\",\n      \"variant_id\": 985038,\n      \"customer_id\": 6697013,\n      \"product_name\": \"MailsFinder\",\n      \"variant_name\": \"Agency\",\n      \"order_item_id\": 6950606,\n      \"trial_ends_at\": null,\n      \"billing_anchor\": 8,\n      \"card_last_four\": \"4524\",\n      \"status_formatted\": \"Cancelled\",\n      \"payment_processor\": \"stripe\",\n      \"first_subscription_item\": {\n        \"id\": 5702421,\n        \"price_id\": 1688221,\n        \"quantity\": 1,\n        \"created_at\": \"2025-12-08T17:59:51.000000Z\",\n        \"updated_at\": \"2025-12-08T17:59:53.000000Z\",\n        \"is_usage_based\": false,\n        \"subscription_id\": 1703524\n      }\n    },\n    \"relationships\": {\n      \"order\": {\n        \"links\": {\n          \"self\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/relationships/order\",\n          \"related\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/order\"\n        }\n      },\n      \"store\": {\n        \"links\": {\n          \"self\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/relationships/store\",\n          \"related\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/store\"\n        }\n      },\n      \"product\": {\n        \"links\": {\n          \"self\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/relationships/product\",\n          \"related\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/product\"\n        }\n      },\n      \"variant\": {\n        \"links\": {\n          \"self\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/relationships/variant\",\n          \"related\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/variant\"\n        }\n      },\n      \"customer\": {\n        \"links\": {\n          \"self\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/relationships/customer\",\n          \"related\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/customer\"\n        }\n      },\n      \"order-item\": {\n        \"links\": {\n          \"self\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/relationships/order-item\",\n          \"related\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/order-item\"\n        }\n      },\n      \"subscription-items\": {\n        \"links\": {\n          \"self\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/relationships/subscription-items\",\n          \"related\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/subscription-items\"\n        }\n      },\n      \"subscription-invoices\": {\n        \"links\": {\n          \"self\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/relationships/subscription-invoices\",\n          \"related\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/subscription-invoices\"\n        }\n      }\n    }\n  },\n  \"meta\": {\n    \"test_mode\": false,\n    \"event_name\": \"subscription_cancelled\",\n    \"webhook_id\": \"546ca74e-0753-4b8d-9c7b-3e2425df5bd7\",\n    \"custom_data\": {\n      \"user_id\": \"690a44fb9eaa4914911d32bb\",\n      \"plan_name\": \"Agency\",\n      \"find_credits\": \"50000\",\n      \"verify_credits\": \"50000\"\n    }\n  }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{URL}}/api/transaction/lemonsqeezy/webhook/handleWebhook",
+							"host": [
+								"{{URL}}"
+							],
+							"path": [
+								"api",
+								"transaction",
+								"lemonsqeezy",
+								"webhook",
+								"handleWebhook"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Subscription Payment Failed",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"data\": {\n    \"id\": \"5312663\",\n    \"type\": \"subscription-invoices\",\n    \"links\": {\n      \"self\": \"https://api.lemonsqueezy.com/v1/subscription-invoices/5312663\"\n    },\n    \"attributes\": {\n      \"tax\": 1782,\n      \"urls\": {\n        \"invoice_url\": \"https://app.lemonsqueezy.com/my-orders/79aefd54-51c6-423e-a3e6-3a93c61845c3/subscription-invoice/5312663?expires=1765144825&signature=8df8a9ba72d163606943f358dd1bafa9db2e5f633e0634586135d88f6ca5100a\"\n      },\n      \"total\": 11682,\n      \"status\": \"pending\",\n      \"tax_usd\": 1782,\n      \"currency\": \"USD\",\n      \"refunded\": false,\n      \"store_id\": 192616,\n      \"subtotal\": 9900,\n      \"test_mode\": false,\n      \"total_usd\": 11682,\n      \"user_name\": \"Harsh Shah\",\n      \"card_brand\": \"visa\",\n      \"created_at\": \"2025-12-07T14:59:31.000000Z\",\n      \"updated_at\": \"2025-12-07T16:00:25.000000Z\",\n      \"user_email\": \"twinkalshah719@gmail.com\",\n      \"customer_id\": 6702963,\n      \"refunded_at\": null,\n      \"subtotal_usd\": 9900,\n      \"currency_rate\": \"1.00000000\",\n      \"tax_formatted\": \"$17.82\",\n      \"tax_inclusive\": false,\n      \"billing_reason\": \"renewal\",\n      \"card_last_four\": \"4524\",\n      \"discount_total\": 0,\n      \"refunded_amount\": 0,\n      \"subscription_id\": 1622518,\n      \"total_formatted\": \"$116.82\",\n      \"status_formatted\": \"Pending\",\n      \"discount_total_usd\": 0,\n      \"subtotal_formatted\": \"$99.00\",\n      \"refunded_amount_usd\": 0,\n      \"discount_total_formatted\": \"$0.00\",\n      \"refunded_amount_formatted\": \"$0.00\"\n    },\n    \"relationships\": {\n      \"store\": {\n        \"links\": {\n          \"self\": \"https://api.lemonsqueezy.com/v1/subscription-invoices/5312663/relationships/store\",\n          \"related\": \"https://api.lemonsqueezy.com/v1/subscription-invoices/5312663/store\"\n        }\n      },\n      \"customer\": {\n        \"links\": {\n          \"self\": \"https://api.lemonsqueezy.com/v1/subscription-invoices/5312663/relationships/customer\",\n          \"related\": \"https://api.lemonsqueezy.com/v1/subscription-invoices/5312663/customer\"\n        }\n      },\n      \"subscription\": {\n        \"links\": {\n          \"self\": \"https://api.lemonsqueezy.com/v1/subscription-invoices/5312663/relationships/subscription\",\n          \"related\": \"https://api.lemonsqueezy.com/v1/subscription-invoices/5312663/subscription\"\n        }\n      }\n    }\n  },\n  \"meta\": {\n    \"test_mode\": false,\n    \"event_name\": \"subscription_payment_failed\",\n    \"webhook_id\": \"9298ee06-89e5-4c4a-afa3-4928d4bc16e6\",\n    \"custom_data\": {\n      \"user_id\": \"690a44fb9eaa4914911d32bb\",\n      \"plan_name\": \"Agency\",\n      \"find_credits\": \"50000\",\n      \"verify_credits\": \"50000\"\n    }\n  }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{LOCAL_URL}}/api/transaction/lemonsqeezy/webhook/handleWebhook",
+							"host": [
+								"{{LOCAL_URL}}"
+							],
+							"path": [
+								"api",
+								"transaction",
+								"lemonsqeezy",
+								"webhook",
+								"handleWebhook"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Purchase",
+			"item": [
+				{
+					"name": "getMyPurchaseHistory",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{USER_TOKEN}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"data\": {\n    \"id\": \"1703524\",\n    \"type\": \"subscriptions\",\n    \"links\": {\n      \"self\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524\"\n    },\n    \"attributes\": {\n      \"urls\": {\n        \"customer_portal\": \"https://datapulsify.lemonsqueezy.com/billing?expires=1765238391&test_mode=0&user=183851&signature=b601db8ed7099ec0ac31992241d5c4542351c558bbd9c497c5ea2a1cc284712a\",\n        \"update_payment_method\": \"https://datapulsify.lemonsqueezy.com/subscription/1703524/payment-details?expires=1765238391&signature=1187574eb9abcc751d486f45b2abd706618c6ac4f555174f52ff7d5c0977d8a8\",\n        \"customer_portal_update_subscription\": \"https://datapulsify.lemonsqueezy.com/billing/1703524/update?expires=1765238391&user=183851&signature=07ed1ce94d6712ea3816b0af8a27d19b2ecb4dc4286cecb74f13566369fd7a24\"\n      },\n      \"pause\": null,\n      \"status\": \"active\",\n      \"ends_at\": null,\n      \"order_id\": 7011429,\n      \"store_id\": 192616,\n      \"cancelled\": false,\n      \"renews_at\": \"2026-01-08T17:59:43.000000Z\",\n      \"test_mode\": false,\n      \"user_name\": \"Harsh Shah\",\n      \"card_brand\": \"visa\",\n      \"created_at\": \"2025-12-08T17:59:45.000000Z\",\n      \"product_id\": 628486,\n      \"updated_at\": \"2025-12-08T17:59:51.000000Z\",\n      \"user_email\": \"harshshah419@gmail.com\",\n      \"variant_id\": 985038,\n      \"customer_id\": 6697013,\n      \"product_name\": \"MailsFinder\",\n      \"variant_name\": \"Agency\",\n      \"order_item_id\": 6950606,\n      \"trial_ends_at\": null,\n      \"billing_anchor\": 8,\n      \"card_last_four\": \"4524\",\n      \"status_formatted\": \"Active\",\n      \"payment_processor\": \"stripe\",\n      \"first_subscription_item\": {\n        \"id\": 5702421,\n        \"price_id\": 1688221,\n        \"quantity\": 1,\n        \"created_at\": \"2025-12-08T17:59:51.000000Z\",\n        \"updated_at\": \"2025-12-08T17:59:51.000000Z\",\n        \"is_usage_based\": false,\n        \"subscription_id\": 1703524\n      }\n    },\n    \"relationships\": {\n      \"order\": {\n        \"links\": {\n          \"self\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/relationships/order\",\n          \"related\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/order\"\n        }\n      },\n      \"store\": {\n        \"links\": {\n          \"self\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/relationships/store\",\n          \"related\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/store\"\n        }\n      },\n      \"product\": {\n        \"links\": {\n          \"self\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/relationships/product\",\n          \"related\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/product\"\n        }\n      },\n      \"variant\": {\n        \"links\": {\n          \"self\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/relationships/variant\",\n          \"related\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/variant\"\n        }\n      },\n      \"customer\": {\n        \"links\": {\n          \"self\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/relationships/customer\",\n          \"related\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/customer\"\n        }\n      },\n      \"order-item\": {\n        \"links\": {\n          \"self\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/relationships/order-item\",\n          \"related\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/order-item\"\n        }\n      },\n      \"subscription-items\": {\n        \"links\": {\n          \"self\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/relationships/subscription-items\",\n          \"related\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/subscription-items\"\n        }\n      },\n      \"subscription-invoices\": {\n        \"links\": {\n          \"self\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/relationships/subscription-invoices\",\n          \"related\": \"https://api.lemonsqueezy.com/v1/subscriptions/1703524/subscription-invoices\"\n        }\n      }\n    }\n  },\n  \"meta\": {\n    \"test_mode\": false,\n    \"event_name\": \"subscription_created\",\n    \"webhook_id\": \"13e9b2bc-4cd5-4201-b3a4-fc04d9404a1d\",\n    \"custom_data\": {\n      \"user_id\": \"690a44fb9eaa4914911d32bb\",\n      \"plan_name\": \"Agency\",\n      \"find_credits\": \"50000\",\n      \"verify_credits\": \"50000\"\n    }\n  }\n}\n"
+						},
+						"url": {
+							"raw": "{{LOCAL_URL}}/api/purchase/getMyPurchaseHistory",
+							"host": [
+								"{{LOCAL_URL}}"
+							],
+							"path": [
+								"api",
+								"purchase",
+								"getMyPurchaseHistory"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "ping",
+			"request": {
+				"method": "GET",
+				"header": []
+			},
+			"response": []
+		}
+	]
+}
