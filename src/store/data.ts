@@ -29,6 +29,8 @@ interface DataState {
   publishContent: (contentId: string, adminId: string, reason?: string) => void
   upsertContent: (content: Omit<ContentItem, 'id' | 'updatedAt' | 'published'> & Partial<Pick<ContentItem, 'id' | 'published'>>) => ContentItem
   updateUserNotes: (userId: string, notes: string) => void
+  updateUser: (userId: string, patch: { plan?: User['plan']; credits_total?: number; credits_find?: number; credits_verify?: number }) => void
+  deleteUser: (userId: string) => void
 }
 
 export const useDataStore = create<DataState>((set, get) => ({
@@ -231,6 +233,28 @@ export const useDataStore = create<DataState>((set, get) => ({
   updateUserNotes: (userId, notes) => {
     set(state => ({
       users: state.users.map(u => (u.id === userId ? { ...u, admin_notes: notes } : u))
+    }))
+  },
+
+  updateUser: (userId, patch) => {
+    set(state => ({
+      users: state.users.map(u => (
+        u.id === userId
+          ? {
+              ...u,
+              plan: patch.plan ?? u.plan,
+              credits_total: patch.credits_total ?? u.credits_total,
+              credits_find: patch.credits_find ?? u.credits_find,
+              credits_verify: patch.credits_verify ?? u.credits_verify
+            }
+          : u
+      ))
+    }))
+  },
+
+  deleteUser: (userId) => {
+    set(state => ({
+      users: state.users.filter(u => u.id !== userId)
     }))
   }
 }))

@@ -17,7 +17,7 @@ import DateFilter, { DateRange, DatePreset } from '../components/DateFilter'
 import { useDataStore } from '../store/data'
 import { useAuthStore } from '../store/auth'
 import { Plan, SubscriptionStatus } from '../types/types'
-import { activeSubscriptions, activeUsersLast30, churnRate, newUsersMoM, totalCreditsUsed, totalRevenue, totalUsers } from '../utils/metrics'
+import { activeSubscriptions, activeUsersLast30, churnRate, newUsersMoM, totalRevenue, totalUsers } from '../utils/metrics'
 import dayjs from 'dayjs'
 
 function KPI({ title, value, suffix, delta }: { title: string; value: number | string; suffix?: string; delta?: number }) {
@@ -51,6 +51,7 @@ export default function Dashboard() {
     const now = dayjs()
     return { from: now.startOf('month').toISOString(), to: now.endOf('month').toISOString(), preset: 'This month' }
   })
+  const [totalCreditsUsedAll, setTotalCreditsUsedAll] = useState<number>(125430)
 
   useEffect(() => {
     const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'https://server.mailsfinder.com'
@@ -201,7 +202,6 @@ export default function Dashboard() {
 
   const kpiTotalUsers = totalUsers(users, range)
   const kpiActiveSubs = activeSubscriptions(users, range)
-  const kpiCreditsUsed = totalCreditsUsed(users, range)
   const kpiRevenue = totalRevenue(purchases, range)
 
   const newUsers = newUsersMoM(users, range, prevRange)
@@ -293,8 +293,8 @@ export default function Dashboard() {
       <Row gutter={16}>
         <Col xs={24} sm={12} md={12} lg={6}><KPI title="Total users" value={kpiTotalUsers} /></Col>
         <Col xs={24} sm={12} md={12} lg={6}><KPI title="Active subscriptions" value={kpiActiveSubs} /></Col>
-        <Col xs={24} sm={12} md={12} lg={6}><KPI title="Total credits used" value={kpiCreditsUsed} /></Col>
         <Col xs={24} sm={12} md={12} lg={6}><KPI title="Total revenue" value={kpiRevenue} suffix="$" /></Col>
+        <Col xs={24} sm={12} md={12} lg={6}><KPI title="Total Credits Used" value={totalCreditsUsedAll} /></Col>
       </Row>
 
       <Row gutter={16}>

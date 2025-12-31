@@ -9,7 +9,7 @@ import { hasScope } from '../store/rbac'
 import { useNavigate } from 'react-router-dom'
 
 export default function UsersList() {
-  const { users, initDemoData, addCredits } = useDataStore()
+  const { users, initDemoData, addCredits, updateUser, deleteUser } = useDataStore()
   const { admin } = useAuthStore()
   const navigate = useNavigate()
   const screens = Grid.useBreakpoint()
@@ -19,6 +19,9 @@ export default function UsersList() {
   const [addCreditsOpen, setAddCreditsOpen] = useState(false)
   const [addCreditsAmount, setAddCreditsAmount] = useState<number>(100)
   const [addCreditsReason, setAddCreditsReason] = useState<string>('')
+  const [editOpen, setEditOpen] = useState(false)
+  const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [editForm] = Form.useForm()
 
   useEffect(() => {
     if (users.length === 0) initDemoData()
@@ -81,7 +84,30 @@ export default function UsersList() {
     { title: 'Last seen', dataIndex: 'lastSeen', key: 'lastSeen',
       render: (d) => d ? dayjs(d).format('YYYY-MM-DD') : '-' },
     { title: 'CreatedAt', dataIndex: 'createdAt', key: 'createdAt',
-      render: (d) => dayjs(d).format('YYYY-MM-DD') }
+      render: (d) => dayjs(d).format('YYYY-MM-DD') },
+    {
+      title: 'Actions',
+      key: 'actions',
+      render: (_, record) => (
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Button
+            size="small"
+            disabled={!hasScope(admin.role, 'users.write')}
+            onClick={() => startEdit(record)}
+          >
+            Edit
+          </Button>
+          <Button
+            size="small"
+            danger
+            disabled={!hasScope(admin.role, 'users.write')}
+            onClick={() => confirmDelete(record)}
+          >
+            Delete
+          </Button>
+        </div>
+      )
+    }
   ]
 
   const rowSelection = {
@@ -98,6 +124,41 @@ export default function UsersList() {
     setAddCreditsOpen(false)
     setSelectedRowKeys([])
     setAddCreditsReason('')
+  }
+
+  function startEdit(user: User) {
+    setEditingUser(user)
+    editForm.setFieldsValue({
+      plan: user.plan,
+      credits_total: user.credits_total,
+      credits_find: user.credits_find,
+      credits_verify: user.credits_verify
+    })
+    setEditOpen(true)
+  }
+
+  async function saveEdit() {
+    if (!editingUser) return
+    const values = await editForm.validateFields()
+    updateUser(editingUser.id, {
+      plan: values.plan,
+      credits_total: Number(values.credits_total),
+      credits_find: Number(values.credits_find),
+      credits_verify: Number(values.credits_verify)
+    })
+    setEditOpen(false)
+    setEditingUser(null)
+    editForm.resetFields()
+  }
+
+  function confirmDelete(user: User) {
+    Modal.confirm({
+      title: 'Delete user',
+      content: `Are you sure you want to delete ${user.full_name}?`,
+      okText: 'Delete',
+      okButtonProps: { danger: true },
+      onOk: () => deleteUser(user.id)
+    })
   }
 
   return (
@@ -197,6 +258,35 @@ export default function UsersList() {
           </Form.Item>
           <Form.Item label="Reason" required>
             <Input.TextArea value={addCreditsReason} onChange={(e) => setAddCreditsReason(e.target.value)} />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title="Edit user"
+        open={editOpen}
+        onOk={saveEdit}
+        onCancel={() => { setEditOpen(false); setEditingUser(null); editForm.resetFields() }}
+      >
+        <Form form={editForm} layout="vertical">
+          <Form.Item name="plan" label="Plan" rules={[{ required: true }]}> 
+            <Select
+              options={[
+                { value: 'free', label: 'Free' },
+                { value: 'pro', label: 'Pro' },
+                { value: 'agency', label: 'Agency' },
+                { value: 'lifetime', label: 'Lifetime' }
+              ]}
+            />
+          </Form.Item>
+          <Form.Item name="credits_total" label="Available Credits" rules={[{ required: true }]}> 
+            <Input type="number" />
+          </Form.Item>
+          <Form.Item name="credits_verify" label="Verification Credits" rules={[{ required: true }]}> 
+            <Input type="number" />
+          </Form.Item>
+          <Form.Item name="credits_find" label="Find Credits" rules={[{ required: true }]}> 
+            <Input type="number" />
           </Form.Item>
         </Form>
       </Modal>
