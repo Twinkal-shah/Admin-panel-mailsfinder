@@ -45,7 +45,7 @@ export default function CMSLite() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <Typography.Title level={3} style={{ margin: 0 }}>Content Management</Typography.Title>
         <Button type="primary" onClick={startCreate}>Create</Button>
       </div>
@@ -123,4 +123,3 @@ export default function CMSLite() {
     </div>
   )
 }
-

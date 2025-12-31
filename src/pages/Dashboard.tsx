@@ -23,12 +23,7 @@ import dayjs from 'dayjs'
 function KPI({ title, value, suffix, delta }: { title: string; value: number | string; suffix?: string; delta?: number }) {
   const sign = delta === undefined ? '' : delta >= 0 ? '+' : ''
   return (
-    <Card
-      style={{
-        background: '#111111',
-        borderColor: '#262626'
-      }}
-    >
+    <Card>
       <Typography.Text type="secondary">{title}</Typography.Text>
       <Typography.Title level={3} style={{ marginTop: 8 }}>
         {value}{suffix ? ` ${suffix}` : ''}
@@ -37,10 +32,7 @@ function KPI({ title, value, suffix, delta }: { title: string; value: number | s
         <Tag
           style={{
             marginTop: 8,
-            borderRadius: 999,
-            borderColor: '#404040',
-            background: '#050505',
-            color: '#e5e5e5'
+            borderRadius: 999
           }}
         >
           {sign}{delta.toFixed(1)}%
@@ -280,7 +272,7 @@ export default function Dashboard() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <Typography.Title level={3} style={{ margin: 0 }}>Dashboard</Typography.Title>
           {backendError && (
@@ -299,20 +291,20 @@ export default function Dashboard() {
       )}
 
       <Row gutter={16}>
-        <Col span={6}><KPI title="Total users" value={kpiTotalUsers} /></Col>
-        <Col span={6}><KPI title="Active subscriptions" value={kpiActiveSubs} /></Col>
-        <Col span={6}><KPI title="Total credits used" value={kpiCreditsUsed} /></Col>
-        <Col span={6}><KPI title="Total revenue" value={kpiRevenue} suffix="$" /></Col>
+        <Col xs={24} sm={12} md={12} lg={6}><KPI title="Total users" value={kpiTotalUsers} /></Col>
+        <Col xs={24} sm={12} md={12} lg={6}><KPI title="Active subscriptions" value={kpiActiveSubs} /></Col>
+        <Col xs={24} sm={12} md={12} lg={6}><KPI title="Total credits used" value={kpiCreditsUsed} /></Col>
+        <Col xs={24} sm={12} md={12} lg={6}><KPI title="Total revenue" value={kpiRevenue} suffix="$" /></Col>
       </Row>
 
       <Row gutter={16}>
-        <Col span={8}><KPI title="New users (MoM)" value={newUsers.current} delta={newUsers.deltaPct} /></Col>
-        <Col span={8}><KPI title="Churn %" value={Number.isFinite(churn) ? churn.toFixed(1) : 0} suffix="%" /></Col>
-        <Col span={8}><KPI title="Active users (30d)" value={active30} /></Col>
+        <Col xs={24} sm={12} md={8}><KPI title="New users (MoM)" value={newUsers.current} delta={newUsers.deltaPct} /></Col>
+        <Col xs={24} sm={12} md={8}><KPI title="Churn %" value={Number.isFinite(churn) ? churn.toFixed(1) : 0} suffix="%" /></Col>
+        <Col xs={24} sm={12} md={8}><KPI title="Active users (30d)" value={active30} /></Col>
       </Row>
 
       <Row gutter={16}>
-        <Col span={16}>
+        <Col xs={24} lg={16}>
           <Card title="Revenue and signups">
             <div style={{ width: '100%', height: 260 }}>
               <ResponsiveContainer>
@@ -354,7 +346,7 @@ export default function Dashboard() {
             </div>
           </Card>
         </Col>
-        <Col span={8}>
+        <Col xs={24} lg={8}>
           <Card title="Users by plan">
             <div style={{ width: '100%', height: 260 }}>
               <ResponsiveContainer>

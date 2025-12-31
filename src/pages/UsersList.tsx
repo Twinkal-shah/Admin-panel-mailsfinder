@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useDataStore } from '../store/data'
-import { Button, Card, Form, Input, Modal, Select, Table, Tag, Typography, DatePicker } from 'antd'
+import { Button, Card, Form, Input, Modal, Select, Table, Tag, Typography, DatePicker, Grid } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { User } from '../types/types'
 import dayjs from 'dayjs'
@@ -12,6 +12,8 @@ export default function UsersList() {
   const { users, initDemoData, addCredits } = useDataStore()
   const { admin } = useAuthStore()
   const navigate = useNavigate()
+  const screens = Grid.useBreakpoint()
+  const isMobile = !screens.md
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([])
   const [filters, setFilters] = useState<{ plan?: string; email_verified?: boolean; subscription_status?: string; country?: string; createdFrom?: string; createdTo?: string }>({})
   const [addCreditsOpen, setAddCreditsOpen] = useState(false)
@@ -103,11 +105,11 @@ export default function UsersList() {
       <Typography.Title level={3} style={{ margin: 0 }}>Users</Typography.Title>
 
       <Card>
-        <Form layout="inline" style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <Form layout={isMobile ? 'vertical' : 'inline'} style={{ display: 'flex', gap: 12, flexWrap: 'wrap', width: '100%' }}>
           <Form.Item label="Plan">
             <Select
               allowClear
-              style={{ width: 160 }}
+              style={{ width: isMobile ? '100%' : 160 }}
               options={['free', 'pro', 'agency', 'lifetime'].map(p => ({ value: p, label: p }))}
               value={filters.plan}
               onChange={(v) => setFilters(f => ({ ...f, plan: v }))}
@@ -116,7 +118,7 @@ export default function UsersList() {
           <Form.Item label="Email verified">
             <Select
               allowClear
-              style={{ width: 160 }}
+              style={{ width: isMobile ? '100%' : 160 }}
               options={[{ value: true, label: 'Yes' }, { value: false, label: 'No' }]}
               value={filters.email_verified as any}
               onChange={(v) => setFilters(f => ({ ...f, email_verified: v }))}
@@ -125,7 +127,7 @@ export default function UsersList() {
           <Form.Item label="Subscription">
             <Select
               allowClear
-              style={{ width: 180 }}
+              style={{ width: isMobile ? '100%' : 180 }}
               options={['active', 'cancelled', 'past_due', 'none'].map(s => ({ value: s, label: s }))}
               value={filters.subscription_status}
               onChange={(v) => setFilters(f => ({ ...f, subscription_status: v }))}
@@ -136,6 +138,7 @@ export default function UsersList() {
               placeholder="Country code"
               value={filters.country}
               onChange={(e) => setFilters(f => ({ ...f, country: e.target.value.toUpperCase() }))}
+              style={{ width: isMobile ? '100%' : 200 }}
             />
           </Form.Item>
           <Form.Item label="Created range">
@@ -151,6 +154,7 @@ export default function UsersList() {
                   createdTo: range && range[1] ? range[1].endOf('day').toISOString() : undefined
                 }))
               }}
+              style={{ width: isMobile ? '100%' : 280 }}
             />
           </Form.Item>
         </Form>
@@ -172,6 +176,8 @@ export default function UsersList() {
           columns={columns}
           pagination={{ pageSize: 10 }}
           rowSelection={rowSelection}
+          scroll={{ x: 'max-content' }}
+          size="small"
         />
       </Card>
 

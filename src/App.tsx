@@ -9,6 +9,7 @@ import ApiKeys from './pages/ApiKeys'
 import AuditLogs from './pages/AuditLogs'
 import Login from './pages/Login'
 import { useAuthStore } from './store/auth'
+import { useEffect, useMemo, useState } from 'react'
 
 function ProtectedRoute({ children }: { children: JSX.Element }) {
   const { isAuthenticated } = useAuthStore()
@@ -17,11 +18,19 @@ function ProtectedRoute({ children }: { children: JSX.Element }) {
 }
 
 export default function App() {
-  return (
-    <ConfigProvider
-      theme={{
-        algorithm: theme.darkAlgorithm,
-        token: {
+  const [isDark, setIsDark] = useState(() => {
+    const saved = localStorage.getItem('theme')
+    return saved ? saved === 'dark' : true
+  })
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light')
+    localStorage.setItem('theme', isDark ? 'dark' : 'light')
+  }, [isDark])
+
+  const tokens = useMemo(() => {
+    return isDark
+      ? {
           colorPrimary: '#737373',
           colorText: '#f5f5f5',
           colorBgBase: '#050505',
@@ -32,6 +41,24 @@ export default function App() {
           fontFamily:
             '"Bricolage Grotesque", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"'
         }
+      : {
+          colorPrimary: '#737373',
+          colorText: '#0a0a0a',
+          colorBgBase: '#ffffff',
+          colorBgContainer: '#ffffff',
+          colorBorder: '#e5e7eb',
+          colorBorderSecondary: '#e5e7eb',
+          borderRadius: 10,
+          fontFamily:
+            '"Bricolage Grotesque", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"'
+        }
+  }, [isDark])
+
+  return (
+    <ConfigProvider
+      theme={{
+        algorithm: isDark ? theme.darkAlgorithm : theme.defaultAlgorithm,
+        token: tokens
       }}
     >
       <Routes>
@@ -40,7 +67,7 @@ export default function App() {
           path="/"
           element={
             <ProtectedRoute>
-              <LayoutShell />
+              <LayoutShell isDark={isDark} onToggleTheme={setIsDark} />
             </ProtectedRoute>
           }
         >

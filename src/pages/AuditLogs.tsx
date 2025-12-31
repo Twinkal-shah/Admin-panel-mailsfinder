@@ -23,9 +23,14 @@ export default function AuditLogs() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <Typography.Title level={3} style={{ margin: 0 }}>Audit & Basic Logs</Typography.Title>
       <Card>
-        <Table<AuditRow> rowKey="id" dataSource={audits} columns={columns} />
+        <Table<AuditRow>
+          rowKey="id"
+          dataSource={audits}
+          columns={columns}
+          scroll={{ x: 'max-content' }}
+          size="small"
+        />
       </Card>
     </div>
   )
 }
-

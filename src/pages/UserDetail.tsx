@@ -94,7 +94,7 @@ export default function UserDetail() {
       <Typography.Title level={3} style={{ margin: 0 }}>User Detail</Typography.Title>
 
       <Row gutter={16}>
-        <Col span={12}>
+        <Col xs={24} md={12}>
           <Card title="Profile">
             <Descriptions column={1} bordered>
               <Descriptions.Item label="full_name">{user.full_name}</Descriptions.Item>
@@ -106,7 +106,7 @@ export default function UserDetail() {
             </Descriptions>
           </Card>
         </Col>
-        <Col span={12}>
+        <Col xs={24} md={12}>
           <Card title="Credits">
             <Descriptions column={1} bordered>
               <Descriptions.Item label="credits">{user.credits_total}</Descriptions.Item>
@@ -134,14 +134,21 @@ export default function UserDetail() {
       </Row>
 
       <Row gutter={16}>
-        <Col span={12}>
+        <Col xs={24} md={12}>
           <Card title="API Keys">
             <div style={{ marginBottom: 12, display: 'flex', gap: 8 }}>
               <Button type="primary" disabled={!hasScope(admin.role, 'apikeys.manage')} onClick={() => setCreateKeyOpen(true)}>
                 Create API Key
               </Button>
             </div>
-            <Table<ApiKey> rowKey="id" dataSource={userKeys} columns={keyColumns} pagination={false} />
+            <Table<ApiKey>
+              rowKey="id"
+              dataSource={userKeys}
+              columns={keyColumns}
+              pagination={false}
+              scroll={{ x: 'max-content' }}
+              size="small"
+            />
             {showFullKey && (
               <Card style={{ marginTop: 12 }} title="New Key">
                 <Typography.Text>
@@ -151,9 +158,16 @@ export default function UserDetail() {
             )}
           </Card>
         </Col>
-        <Col span={12}>
+        <Col xs={24} md={12}>
           <Card title="Purchases">
-            <Table<Purchase> rowKey="id" dataSource={userPurchases} columns={purchaseColumns} pagination={false} />
+            <Table<Purchase>
+              rowKey="id"
+              dataSource={userPurchases}
+              columns={purchaseColumns}
+              pagination={false}
+              scroll={{ x: 'max-content' }}
+              size="small"
+            />
           </Card>
         </Col>
       </Row>

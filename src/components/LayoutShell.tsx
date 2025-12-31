@@ -1,4 +1,4 @@
-import { Layout, Menu, Typography, Dropdown, Button } from 'antd'
+import { Layout, Menu, Typography, Dropdown, Button, Drawer, Grid, Switch } from 'antd'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   DashboardOutlined,
@@ -7,14 +7,19 @@ import {
   ApiOutlined,
   FileTextOutlined
 } from '@ant-design/icons'
+import { MenuOutlined } from '@ant-design/icons'
 import { useAuthStore } from '../store/auth'
+import { useState } from 'react'
 
 const { Header, Sider, Content } = Layout
 
-export default function LayoutShell() {
+export default function LayoutShell({ isDark, onToggleTheme }: { isDark: boolean; onToggleTheme: (v: boolean) => void }) {
   const location = useLocation()
   const navigate = useNavigate()
   const { admin, logout } = useAuthStore()
+  const screens = Grid.useBreakpoint()
+  const isMobile = !screens.md
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const selectedKey =
     location.pathname === '/'
       ? '/'
@@ -39,43 +44,79 @@ export default function LayoutShell() {
   )
 
   return (
-    <Layout style={{ minHeight: '100vh', background: '#050505' }}>
-      <Sider width={220} theme="dark" style={{ background: '#050505' }}>
-        <div style={{ padding: 16 }}>
-          <Typography.Title level={4} style={{ margin: 0, color: '#f5f5f5' }}>
-            MailsFinder
-          </Typography.Title>
-          <Typography.Text type="secondary" style={{ color: '#a3a3a3' }}>Admin</Typography.Text>
-        </div>
-        <Menu
-          theme="dark"
-          mode="inline"
-          items={items}
-          selectedKeys={[selectedKey]}
-          onClick={({ key }) => navigate(key)}
-          style={{ background: '#050505', borderInlineEnd: '1px solid #262626' }}
-        />
-      </Sider>
-      <Layout style={{ background: '#050505' }}>
+    <Layout style={{ minHeight: '100vh', background: isDark ? '#050505' : '#ffffff' }}>
+      {!isMobile && (
+        <Sider width={220} theme={isDark ? 'dark' : 'light'}>
+          <div style={{ padding: 16 }}>
+            <Typography.Title level={4} style={{ margin: 0 }}>
+              MailsFinder
+            </Typography.Title>
+            <Typography.Text type="secondary">Admin</Typography.Text>
+          </div>
+          <Menu
+            theme={isDark ? 'dark' : 'light'}
+            mode="inline"
+            items={items}
+            selectedKeys={[selectedKey]}
+            onClick={({ key }) => navigate(key)}
+            style={{ borderInlineEnd: isDark ? '1px solid #262626' : undefined }}
+          />
+        </Sider>
+      )}
+      <Layout>
         <Header
           style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            paddingInline: 20,
-            background: '#050505',
-            borderBottom: '1px solid #262626'
+            paddingInline: isMobile ? 12 : 20,
+            background: isDark ? '#050505' : '#ffffff',
+            borderBottom: isDark ? '1px solid #262626' : '1px solid #e5e7eb'
           }}
         >
-          <Typography.Text style={{ color: '#f5f5f5' }}>Welcome, {admin.name}</Typography.Text>
-          <Dropdown overlay={menu} trigger={['click']}>
-            <Button type="default">{admin.email}</Button>
-          </Dropdown>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {isMobile && (
+              <Button type="text" aria-label="Open navigation" onClick={() => setDrawerOpen(true)} icon={<MenuOutlined />} />
+            )}
+            <Typography.Text>Welcome, {admin.name}</Typography.Text>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <Switch
+              checked={isDark}
+              onChange={(v) => onToggleTheme(v)}
+              checkedChildren="Dark"
+              unCheckedChildren="Light"
+            />
+            <Dropdown overlay={menu} trigger={['click']}>
+              <Button type="default">{admin.email}</Button>
+            </Dropdown>
+          </div>
         </Header>
-        <Content style={{ padding: 24, background: '#050505' }}>
+        <Content style={{ padding: isMobile ? 12 : 24 }}>
           <Outlet />
         </Content>
       </Layout>
+      {isMobile && (
+        <Drawer
+          title="MailsFinder Admin"
+          placement="left"
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          bodyStyle={{ padding: 0, background: isDark ? '#050505' : '#ffffff' }}
+        >
+          <Menu
+            theme={isDark ? 'dark' : 'light'}
+            mode="inline"
+            items={items}
+            selectedKeys={[selectedKey]}
+            onClick={({ key }) => {
+              setDrawerOpen(false)
+              navigate(key)
+            }}
+            style={{}}
+          />
+        </Drawer>
+      )}
     </Layout>
   )
 }

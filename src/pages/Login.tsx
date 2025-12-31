@@ -28,7 +28,7 @@ export default function Login() {
 
   return (
     <div style={{ display: 'grid', placeItems: 'center', height: '100vh' }}>
-      <Card title="Admin Login" style={{ width: 420 }}>
+      <Card title="Admin Login" style={{ width: '100%', maxWidth: 420, margin: '0 16px' }}>
         <Typography.Paragraph type="secondary" style={{ marginBottom: 16 }}>
           Admin access required (JWT/session). 2FA is recommended for superadmin.
         </Typography.Paragraph>

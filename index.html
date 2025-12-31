@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -8,38 +8,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-      :root {
-        --bg: #050507;
-        --panel: #101014;
-        --muted: #9ca3af;
-        --text: #f3f4f6;
-        --primary: #4b5563;
-        --accent-soft: #1f2933;
-      }
-      html, body, #root {
-        height: 100%;
-      }
-      body {
-        margin: 0;
-        background: var(--bg);
-        color: var(--text);
-        font-family: "Bricolage Grotesque", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
-      }
-      .ant-layout,
-      .ant-card,
-      .ant-table,
-      .ant-modal-content,
-      .ant-dropdown-menu {
-        background: var(--panel) !important;
-        color: var(--text) !important;
-      }
-      .ant-typography,
-      .ant-input,
-      .ant-select-selector,
-      .ant-btn,
-      .ant-form-item-label > label {
-        color: var(--text) !important;
-      }
+      html, body, #root { height: 100%; }
+      body { margin: 0; }
+      /* Global font across themes */
       body,
       #root,
       .ant-typography,
@@ -55,6 +26,35 @@
       .ant-card,
       .ant-dropdown-menu {
         font-family: "Bricolage Grotesque", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol" !important;
+      }
+
+      /* Dark theme variables and component overrides */
+      :root[data-theme="dark"] {
+        --bg: #050507;
+        --panel: #101014;
+        --muted: #9ca3af;
+        --text: #f3f4f6;
+        --primary: #4b5563;
+        --accent-soft: #1f2933;
+      }
+      html[data-theme="dark"] body {
+        background: var(--bg);
+        color: var(--text);
+      }
+      html[data-theme="dark"] .ant-layout,
+      html[data-theme="dark"] .ant-card,
+      html[data-theme="dark"] .ant-table,
+      html[data-theme="dark"] .ant-modal-content,
+      html[data-theme="dark"] .ant-dropdown-menu {
+        background: var(--panel) !important;
+        color: var(--text) !important;
+      }
+      html[data-theme="dark"] .ant-typography,
+      html[data-theme="dark"] .ant-input,
+      html[data-theme="dark"] .ant-select-selector,
+      html[data-theme="dark"] .ant-btn,
+      html[data-theme="dark"] .ant-form-item-label > label {
+        color: var(--text) !important;
       }
     </style>
   </head>

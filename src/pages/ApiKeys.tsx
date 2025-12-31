@@ -75,14 +75,21 @@ export default function ApiKeys() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <Typography.Title level={3} style={{ margin: 0 }}>API Keys</Typography.Title>
         <Button type="primary" disabled={!hasScope(admin.role, 'apikeys.manage')} onClick={() => setCreateOpen(true)}>
           Create
         </Button>
       </div>
       <Card>
-        <Table<ApiKey> rowKey="id" dataSource={apiKeys} columns={columns} pagination={{ pageSize: 10 }} />
+        <Table<ApiKey>
+          rowKey="id"
+          dataSource={apiKeys}
+          columns={columns}
+          pagination={{ pageSize: 10 }}
+          scroll={{ x: 'max-content' }}
+          size="small"
+        />
       </Card>
 
       {fullKey && (

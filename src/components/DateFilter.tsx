@@ -50,7 +50,7 @@ export default function DateFilter(props: {
   }
 
   return (
-    <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+    <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', width: '100%' }}>
       <Segmented
         options={presets}
         value={props.value.preset}
@@ -59,6 +59,7 @@ export default function DateFilter(props: {
       <RangePicker
         value={[dayjs(props.value.from), dayjs(props.value.to)]}
         onChange={onRangeChange}
+        style={{ minWidth: 240, flex: 1 }}
       />
     </div>
   )
