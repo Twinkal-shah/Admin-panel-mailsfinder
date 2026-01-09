@@ -12,14 +12,13 @@ export default function Login() {
 
   async function onFinish(values: any) {
     setError(null)
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'https://server.mailsfinder.com'
     setLoading(true)
     try {
       const email = String(values.email || '').trim().toLowerCase()
       const res = await fetch(`${API_BASE_URL}/api/admin/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ email, password: String(values.password || '') })
       })
       if (!res.ok) {
