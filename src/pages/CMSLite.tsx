@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useDataStore } from '../store/data'
 import { Button, Card, Form, Input, List, Modal, Typography } from 'antd'
 import ReactMarkdown from 'react-markdown'
@@ -8,11 +8,55 @@ import { useAuthStore } from '../store/auth'
 import { hasScope } from '../store/rbac'
 
 export default function CMSLite() {
-  const { contents, upsertContent, publishContent } = useDataStore()
-  const { admin } = useAuthStore()
+  const { contents, upsertContent, publishContent, setAll } = useDataStore()
+  const { admin, token } = useAuthStore()
   const [editing, setEditing] = useState<Partial<ContentItem> | null>(null)
   const [reason, setReason] = useState<string>('')
   const [openModal, setOpenModal] = useState<boolean>(false)
+  const [loading, setLoading] = useState<boolean>(false)
+  const [saving, setSaving] = useState<boolean>(false)
+  const [backendError, setBackendError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      setLoading(true)
+      setBackendError(null)
+      try {
+        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
+        const bearer = token || localStorage.getItem('ADMIN_TOKEN') || ''
+        const res = await fetch(`${API_BASE_URL}/api/admin/contentManagement/getAllContent`, {
+          headers: { Authorization: bearer ? `Bearer ${bearer}` : '' }
+        })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const body = await res.json()
+        if (cancelled) return
+        const source = Array.isArray(body) ? body : Array.isArray(body?.contents) ? body.contents : []
+        const mapped = source.map((c: any) => ({
+          id: String(c._id ?? c.id),
+          title: c.title ?? '',
+          slug: c.slug ?? '',
+          summary: c.summary ?? undefined,
+          body: c.body ?? '',
+          attachments: Array.isArray(c.attachments) ? c.attachments : [],
+          published: !!(c.published ?? c.is_published),
+          updatedAt:
+            (c.updatedAt && new Date(c.updatedAt).toISOString()) ||
+            (c.createdAt && new Date(c.createdAt).toISOString()) ||
+            new Date().toISOString()
+        })) as ContentItem[]
+        setAll({ contents: mapped })
+      } catch (e) {
+        setBackendError('Failed to load content')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [token, setAll])
 
   function startCreate() {
     setEditing({
@@ -24,23 +68,111 @@ export default function CMSLite() {
     })
   }
 
-  function onSave(values: any) {
-    const updated = upsertContent({
-      id: editing?.id,
+  async function onSave(values: any) {
+    const payload = {
       title: values.title,
       slug: values.slug,
       summary: values.summary,
       body: values.body,
-      attachments: values.attachments?.split(',').map((s: string) => s.trim()).filter(Boolean)
-    })
-    setEditing(updated)
+      attachments: values.attachments?.split(',').map((s: string) => s.trim()).filter(Boolean) || []
+    }
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
+    setSaving(true)
+    try {
+      if (editing?.id) {
+        const bearer = token || localStorage.getItem('ADMIN_TOKEN') || ''
+        const res = await fetch(`${API_BASE_URL}/api/admin/contentManagement/updatedContent/${editing.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: bearer ? `Bearer ${bearer}` : ''
+          },
+          body: JSON.stringify(payload)
+        })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      } else {
+        const bearer2 = token || localStorage.getItem('ADMIN_TOKEN') || ''
+        const res = await fetch(`${API_BASE_URL}/api/admin/contentManagement/createContent`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: bearer2 ? `Bearer ${bearer2}` : ''
+          },
+          body: JSON.stringify(payload)
+        })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      }
+      const bearer3 = token || localStorage.getItem('ADMIN_TOKEN') || ''
+      const reload = await fetch(`${API_BASE_URL}/api/admin/contentManagement/getAllContent`, {
+        headers: { Authorization: bearer3 ? `Bearer ${bearer3}` : '' }
+      })
+      if (reload.ok) {
+        const body = await reload.json()
+        const source = Array.isArray(body) ? body : Array.isArray(body?.contents) ? body.contents : []
+        const mapped = source.map((c: any) => ({
+          id: String(c._id ?? c.id),
+          title: c.title ?? '',
+          slug: c.slug ?? '',
+          summary: c.summary ?? undefined,
+          body: c.body ?? '',
+          attachments: Array.isArray(c.attachments) ? c.attachments : [],
+          published: !!(c.published ?? c.is_published),
+          updatedAt:
+            (c.updatedAt && new Date(c.updatedAt).toISOString()) ||
+            (c.createdAt && new Date(c.createdAt).toISOString()) ||
+            new Date().toISOString()
+        })) as ContentItem[]
+        setAll({ contents: mapped })
+      }
+    } catch (e) {
+      setBackendError('Save failed')
+    } finally {
+      setSaving(false)
+    }
   }
 
-  function confirmPublish() {
+  async function confirmPublish() {
     if (!editing?.id) return
-    publishContent(editing.id, admin.id, reason)
-    setReason('')
-    setOpenModal(false)
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
+    try {
+      const bearer4 = token || localStorage.getItem('ADMIN_TOKEN') || ''
+      const res = await fetch(`${API_BASE_URL}/api/admin/contentManagement/updatedContent/${editing.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: bearer4 ? `Bearer ${bearer4}` : ''
+        },
+        body: JSON.stringify({ published: true, reason })
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const bearer5 = token || localStorage.getItem('ADMIN_TOKEN') || ''
+      const reload = await fetch(`${API_BASE_URL}/api/admin/contentManagement/getAllContent`, {
+        headers: { Authorization: bearer5 ? `Bearer ${bearer5}` : '' }
+      })
+      if (reload.ok) {
+        const body = await reload.json()
+        const source = Array.isArray(body) ? body : Array.isArray(body?.contents) ? body.contents : []
+        const mapped = source.map((c: any) => ({
+          id: String(c._id ?? c.id),
+          title: c.title ?? '',
+          slug: c.slug ?? '',
+          summary: c.summary ?? undefined,
+          body: c.body ?? '',
+          attachments: Array.isArray(c.attachments) ? c.attachments : [],
+          published: !!(c.published ?? c.is_published),
+          updatedAt:
+            (c.updatedAt && new Date(c.updatedAt).toISOString()) ||
+            (c.createdAt && new Date(c.createdAt).toISOString()) ||
+            new Date().toISOString()
+        })) as ContentItem[]
+        setAll({ contents: mapped })
+      }
+    } catch (e) {
+      setBackendError('Publish failed')
+    } finally {
+      setReason('')
+      setOpenModal(false)
+    }
   }
 
   return (

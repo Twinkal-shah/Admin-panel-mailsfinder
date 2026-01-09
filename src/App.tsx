@@ -28,6 +28,11 @@ export default function App() {
     localStorage.setItem('theme', isDark ? 'dark' : 'light')
   }, [isDark])
 
+  const { restoreFromToken } = useAuthStore()
+  useEffect(() => {
+    restoreFromToken()
+  }, [restoreFromToken])
+
   const tokens = useMemo(() => {
     return isDark
       ? {

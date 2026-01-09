@@ -7,8 +7,8 @@ import { useAuthStore } from '../store/auth'
 import { hasScope } from '../store/rbac'
 
 export default function ApiKeys() {
-  const { apiKeys, users, initDemoData, revokeApiKey, createApiKey, updateApiKeyRateLimit } = useDataStore()
-  const { admin } = useAuthStore()
+  const { apiKeys, users, initDemoData, revokeApiKey, createApiKey, updateApiKeyRateLimit, setAll } = useDataStore()
+  const { admin, token } = useAuthStore()
   const [createOpen, setCreateOpen] = useState(false)
   const [rateLimit, setRateLimit] = useState<number>(60)
   const [userId, setUserId] = useState<string | undefined>(undefined)
@@ -19,6 +19,48 @@ export default function ApiKeys() {
   useEffect(() => {
     if (users.length === 0) initDemoData()
   }, [])
+
+  useEffect(() => {
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'https://server.mailsfinder.com'
+    let cancelled = false
+    async function loadKeys() {
+      if (apiKeys.length > 0) return
+      try {
+        const bearer = token || localStorage.getItem('ADMIN_TOKEN') || ''
+        const res = await fetch(`${API_BASE_URL}/api/admin/dashboard/bootstrap`, {
+          headers: { Authorization: bearer ? `Bearer ${bearer}` : '' },
+          credentials: 'include'
+        })
+        if (!res.ok) return
+        const body = await res.json()
+        if (cancelled) return
+        const source = Array.isArray(body.apiKeys)
+          ? body.apiKeys
+          : Array.isArray(body.apikeys)
+          ? body.apikeys
+          : []
+        const mapped = source.map((k: any) => ({
+          id: String(k._id ?? k.id),
+          userId: k.userId ? String(k.userId) : undefined,
+          keyPrefix: k.keyPrefix ?? (typeof k.apiKey === 'string' ? k.apiKey.slice(0, 8) : ''),
+          encryptedKey: 'hidden',
+          rateLimitPerMinute: k.rateLimitPerMinute ?? 60,
+          lastUsedAt:
+            (k.lastUsedAt && new Date(k.lastUsedAt).toISOString()) ||
+            (k.updatedAt && new Date(k.updatedAt).toISOString()) ||
+            undefined,
+          usageCount: k.usageCount ?? 0,
+          status: k.isActive === false ? 'revoked' : 'active',
+          createdAt: (k.createdAt && new Date(k.createdAt).toISOString()) || new Date().toISOString()
+        }))
+        if (mapped.length > 0) setAll({ apiKeys: mapped })
+      } catch {}
+    }
+    loadKeys()
+    return () => {
+      cancelled = true
+    }
+  }, [apiKeys.length, setAll, token])
 
   const columns = [
     { title: 'Prefix', dataIndex: 'keyPrefix' },

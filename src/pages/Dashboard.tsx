@@ -17,7 +17,6 @@ import DateFilter, { DateRange, DatePreset } from '../components/DateFilter'
 import { useDataStore } from '../store/data'
 import { useAuthStore } from '../store/auth'
 import { Plan, SubscriptionStatus } from '../types/types'
-import { activeSubscriptions, activeUsersLast30, churnRate, newUsersMoM, totalRevenue, totalUsers } from '../utils/metrics'
 import dayjs from 'dayjs'
 
 function KPI({ title, value, suffix, delta }: { title: string; value: number | string; suffix?: string; delta?: number }) {
@@ -51,7 +50,18 @@ export default function Dashboard() {
     const now = dayjs()
     return { from: now.startOf('month').toISOString(), to: now.endOf('month').toISOString(), preset: 'This month' }
   })
-  const [totalCreditsUsedAll, setTotalCreditsUsedAll] = useState<number>(125430)
+  const [metrics, setMetrics] = useState<{
+    totalUsers: number
+    activeSubscriptions: number
+    totalRevenue: number
+    totalCreditsUsed: number
+    newUsersThisMonth: { count: number; deltaPct: number }
+    churnPct: number
+    activeUsersLast30: number
+    timeSeries: { date: string; revenue: number; signups: number }[]
+    usersByPlan: { name: string; value: number }[]
+    latestActivity: { type: string; when: string; text: string }[]
+  } | null>(null)
 
   useEffect(() => {
     const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'https://server.mailsfinder.com'
@@ -61,7 +71,11 @@ export default function Dashboard() {
       setLoading(true)
       setBackendError(null)
       try {
-        const res = await fetch(`${API_BASE_URL}/api/admin/dashboard/bootstrap`, {
+        const params = new URLSearchParams({
+          from: dayjs(range.from).format('YYYY-MM-DD'),
+          to: dayjs(range.to).format('YYYY-MM-DD')
+        })
+        const res = await fetch(`${API_BASE_URL}/api/admin/dashboard/bootstrap?${params.toString()}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
           credentials: 'include'
         })
@@ -176,6 +190,7 @@ export default function Dashboard() {
           apiKeys: apiKeysMapped,
           audits: auditsMapped
         })
+        if (body.metrics) setMetrics(body.metrics)
       } catch (e) {
         if (cancelled) return
         if (users.length === 0) initDemoData()
@@ -185,90 +200,16 @@ export default function Dashboard() {
       }
     }
 
-    if (users.length === 0) {
-      load()
-    }
+    load()
 
     return () => {
       cancelled = true
     }
-  }, [setAll, initDemoData, token])
-
-  const prevRange = useMemo(() => {
-    const from = dayjs(range.from).subtract(1, 'month').startOf('month').toISOString()
-    const to = dayjs(range.from).subtract(1, 'month').endOf('month').toISOString()
-    return { from, to }
-  }, [range])
-
-  const kpiTotalUsers = totalUsers(users, range)
-  const kpiActiveSubs = activeSubscriptions(users, range)
-  const kpiRevenue = totalRevenue(purchases, range)
-
-  const newUsers = newUsersMoM(users, range, prevRange)
-  const churn = churnRate(users, range)
-  const active30 = activeUsersLast30(users)
-
-  const rangeFrom = useMemo(() => dayjs(range.from), [range.from])
-  const rangeTo = useMemo(() => dayjs(range.to), [range.to])
-
-  const timeSeriesData = useMemo(() => {
-    const byDate: Record<string, { date: string; revenue: number; signups: number }> = {}
-
-    purchases.forEach(p => {
-      const d = dayjs(p.date)
-      if (d.isBefore(rangeFrom) || d.isAfter(rangeTo)) return
-      const key = d.format('YYYY-MM-DD')
-      if (!byDate[key]) byDate[key] = { date: key, revenue: 0, signups: 0 }
-      if (p.status === 'paid') byDate[key].revenue += p.amount
-    })
-
-    users.forEach(u => {
-      const d = dayjs(u.createdAt)
-      if (d.isBefore(rangeFrom) || d.isAfter(rangeTo)) return
-      const key = d.format('YYYY-MM-DD')
-      if (!byDate[key]) byDate[key] = { date: key, revenue: 0, signups: 0 }
-      byDate[key].signups += 1
-    })
-
-    return Object.values(byDate).sort((a, b) => a.date.localeCompare(b.date))
-  }, [purchases, users, rangeFrom, rangeTo])
-
-  const planDistribution = useMemo(() => {
-    const counts: Record<string, number> = { free: 0, pro: 0, agency: 0, lifetime: 0 }
-    users.forEach(u => {
-      if (counts[u.plan] !== undefined) counts[u.plan] += 1
-    })
-    return Object.entries(counts)
-      .filter(([, value]) => value > 0)
-      .map(([name, value]) => ({ name, value }))
-  }, [users])
+  }, [setAll, initDemoData, token, range.from, range.to])
 
   const planColors = ['#d4d4d4', '#a3a3a3', '#737373', '#525252']
 
-  const recentItems = useMemo(() => {
-    const signups = users
-      .slice()
-      .sort((a, b) => dayjs(b.createdAt).valueOf() - dayjs(a.createdAt).valueOf())
-      .slice(0, 50)
-      .map(u => ({ type: 'signup', when: u.createdAt, text: `${u.full_name} signed up (${u.email})` }))
-    const purchaseItems = purchases
-      .slice()
-      .sort((a, b) => dayjs(b.date).valueOf() - dayjs(a.date).valueOf())
-      .slice(0, 50)
-      .map(p => ({ type: 'purchase', when: p.date, text: `Purchase ${p.planName} - ${p.status}` }))
-    const creditAdj = audits
-      .filter(a => a.action === 'credits.adjust')
-      .slice(-50)
-      .map(a => ({ type: 'credits', when: a.timestamp, text: `Credits adjusted for ${a.targetId}` }))
-    const apiCreate = audits
-      .filter(a => a.action === 'apikey.create')
-      .slice(-50)
-      .map(a => ({ type: 'apikey', when: a.timestamp, text: `API key created ${a.targetId}` }))
-    const merged = [...signups, ...purchaseItems, ...creditAdj, ...apiCreate]
-      .sort((a, b) => dayjs(b.when).valueOf() - dayjs(a.when).valueOf())
-      .slice(0, 50)
-    return merged
-  }, [users, purchases, audits, apiKeys])
+  const recentItems = metrics?.latestActivity ?? []
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -291,16 +232,16 @@ export default function Dashboard() {
       )}
 
       <Row gutter={16}>
-        <Col xs={24} sm={12} md={12} lg={6}><KPI title="Total users" value={kpiTotalUsers} /></Col>
-        <Col xs={24} sm={12} md={12} lg={6}><KPI title="Active subscriptions" value={kpiActiveSubs} /></Col>
-        <Col xs={24} sm={12} md={12} lg={6}><KPI title="Total revenue" value={kpiRevenue} suffix="$" /></Col>
-        <Col xs={24} sm={12} md={12} lg={6}><KPI title="Total Credits Used" value={totalCreditsUsedAll} /></Col>
+        <Col xs={24} sm={12} md={12} lg={6}><KPI title="Total users" value={metrics?.totalUsers ?? 0} /></Col>
+        <Col xs={24} sm={12} md={12} lg={6}><KPI title="Active subscriptions" value={metrics?.activeSubscriptions ?? 0} /></Col>
+        <Col xs={24} sm={12} md={12} lg={6}><KPI title="Total revenue" value={metrics?.totalRevenue ?? 0} suffix="$" /></Col>
+        <Col xs={24} sm={12} md={12} lg={6}><KPI title="Total Credits Used" value={metrics?.totalCreditsUsed ?? 0} /></Col>
       </Row>
 
       <Row gutter={16}>
-        <Col xs={24} sm={12} md={8}><KPI title="New users (MoM)" value={newUsers.current} delta={newUsers.deltaPct} /></Col>
-        <Col xs={24} sm={12} md={8}><KPI title="Churn %" value={Number.isFinite(churn) ? churn.toFixed(1) : 0} suffix="%" /></Col>
-        <Col xs={24} sm={12} md={8}><KPI title="Active users (30d)" value={active30} /></Col>
+        <Col xs={24} sm={12} md={8}><KPI title="New users (MoM)" value={metrics?.newUsersThisMonth?.count ?? 0} delta={metrics?.newUsersThisMonth?.deltaPct ?? 0} /></Col>
+        <Col xs={24} sm={12} md={8}><KPI title="Churn %" value={Number.isFinite(metrics?.churnPct ?? 0) ? (metrics?.churnPct ?? 0).toFixed(1) : 0} suffix="%" /></Col>
+        <Col xs={24} sm={12} md={8}><KPI title="Active users (30d)" value={metrics?.activeUsersLast30 ?? 0} /></Col>
       </Row>
 
       <Row gutter={16}>
@@ -308,7 +249,7 @@ export default function Dashboard() {
           <Card title="Revenue and signups">
             <div style={{ width: '100%', height: 260 }}>
               <ResponsiveContainer>
-                <BarChart data={timeSeriesData}>
+                <BarChart data={metrics?.timeSeries ?? []}>
                   <CartesianGrid stroke="#262626" vertical={false} />
                   <XAxis dataKey="date" tick={{ fill: '#a3a3a3', fontSize: 11 }} />
                   <YAxis
@@ -352,14 +293,14 @@ export default function Dashboard() {
               <ResponsiveContainer>
                 <PieChart>
                   <Pie
-                    data={planDistribution}
+                    data={metrics?.usersByPlan ?? []}
                     dataKey="value"
                     nameKey="name"
                     innerRadius={60}
                     outerRadius={90}
                     paddingAngle={4}
                   >
-                    {planDistribution.map((entry, index) => (
+                    {(metrics?.usersByPlan ?? []).map((entry, index) => (
                       <Cell key={entry.name} fill={planColors[index % planColors.length]} />
                     ))}
                   </Pie>

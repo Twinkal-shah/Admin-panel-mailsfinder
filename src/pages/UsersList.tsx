@@ -7,10 +7,11 @@ import dayjs from 'dayjs'
 import { useAuthStore } from '../store/auth'
 import { hasScope } from '../store/rbac'
 import { useNavigate } from 'react-router-dom'
+import axios from 'axios'
 
 export default function UsersList() {
-  const { users, initDemoData, addCredits, updateUser, deleteUser } = useDataStore()
-  const { admin } = useAuthStore()
+  const { users, addCredits, updateUser, deleteUser, setAll } = useDataStore()
+  const { admin, token } = useAuthStore()
   const navigate = useNavigate()
   const screens = Grid.useBreakpoint()
   const isMobile = !screens.md
@@ -22,10 +23,63 @@ export default function UsersList() {
   const [editOpen, setEditOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [editForm] = Form.useForm()
+  const [loading, setLoading] = useState<boolean>(false)
+  const [backendError, setBackendError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (users.length === 0) initDemoData()
-  }, [])
+    let cancelled = false
+    async function load() {
+      setLoading(true)
+      setBackendError(null)
+      try {
+        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
+        const bearer = token || localStorage.getItem('ADMIN_TOKEN') || ''
+        const res = await axios.get(`${API_BASE_URL}/api/admin/userManagement/getAllUsers`, {
+          headers: {
+            Authorization: bearer ? `Bearer ${bearer}` : ''
+          }
+        })
+        if (cancelled) return
+        const source = Array.isArray(res.data?.data) ? res.data.data : []
+        const mapped: User[] = source.map((u: any) => {
+          const planRaw = String(u.plan ?? 'free').toLowerCase()
+          const plan: User['plan'] =
+            planRaw === 'pro' || planRaw === 'agency' || planRaw === 'lifetime' ? (planRaw as User['plan']) : 'free'
+          const subscription_status: User['subscription_status'] = plan === 'free' ? 'none' : 'active'
+          const credits_find = Number(u.credits_find ?? 0)
+          const credits_verify = Number(u.credits_verify ?? 0)
+          const credits_total = Number(u.credits ?? credits_find + credits_verify)
+          return {
+            id: String(u._id ?? u.id),
+            full_name: String(u.full_name ?? u.name ?? ''),
+            email: String(u.email ?? ''),
+            phone: u.phone ?? undefined,
+            country: u.country ?? undefined,
+            onboarding_flag: typeof u.onboarding_flag === 'boolean' ? u.onboarding_flag : undefined,
+            createdAt: (u.createdAt && new Date(u.createdAt).toISOString()) || new Date().toISOString(),
+            lastSeen: (u.lastSeen && new Date(u.lastSeen).toISOString()) || undefined,
+            plan,
+            credits_total,
+            credits_find,
+            credits_verify,
+            subscription_status,
+            email_verified: !!u.email_verified,
+            admin_notes: u.admin_notes ?? undefined
+          }
+        })
+        setAll({ users: mapped })
+      } catch (e) {
+        setAll({ users: [] })
+        setBackendError('Failed to load users')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [setAll])
 
   const filtered = useMemo(() => {
     return users.filter(u => {
@@ -239,6 +293,7 @@ export default function UsersList() {
           rowSelection={rowSelection}
           scroll={{ x: 'max-content' }}
           size="small"
+          loading={loading}
         />
       </Card>
 
