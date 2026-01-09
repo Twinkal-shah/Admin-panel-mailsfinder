@@ -77,6 +77,7 @@ export default function Dashboard() {
         })
         const res = await fetch(`${API_BASE_URL}/api/admin/dashboard/bootstrap?${params.toString()}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
+          credentials: 'include'
         })
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const body = await res.json()

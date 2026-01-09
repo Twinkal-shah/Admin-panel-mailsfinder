@@ -29,6 +29,7 @@ export default function ApiKeys() {
         const bearer = token || localStorage.getItem('ADMIN_TOKEN') || ''
         const res = await fetch(`${API_BASE_URL}/api/admin/dashboard/bootstrap`, {
           headers: { Authorization: bearer ? `Bearer ${bearer}` : '' },
+          credentials: 'include'
         })
         if (!res.ok) return
         const body = await res.json()
