@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Card, Typography, Row, Col, List, Tag, Spin } from 'antd'
+import { Card, Typography, Row, Col, List, Tag, Skeleton, theme } from 'antd'
 import {
   ResponsiveContainer,
   BarChart,
@@ -17,7 +17,9 @@ import DateFilter, { DateRange, DatePreset } from '../components/DateFilter'
 import { useDataStore } from '../store/data'
 import { useAuthStore } from '../store/auth'
 import { Plan, SubscriptionStatus } from '../types/types'
+import { PLAN_COLORS, PLAN_ORDER } from '../ui/planTheme'
 import dayjs from 'dayjs'
+import utc from 'dayjs/plugin/utc'
 
 function KPI({ title, value, suffix, delta }: { title: string; value: number | string; suffix?: string; delta?: number }) {
   const sign = delta === undefined ? '' : delta >= 0 ? '+' : ''
@@ -46,6 +48,9 @@ export default function Dashboard() {
   const { token } = useAuthStore()
   const [loading, setLoading] = useState(false)
   const [backendError, setBackendError] = useState<string | null>(null)
+  const { token: antdToken } = theme.useToken()
+  const isDarkMode = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'dark'
+  dayjs.extend(utc)
   const [range, setRange] = useState<DateRange & { preset: DatePreset }>(() => {
     const now = dayjs()
     return { from: now.startOf('month').toISOString(), to: now.endOf('month').toISOString(), preset: 'This month' }
@@ -72,8 +77,8 @@ export default function Dashboard() {
       setBackendError(null)
       try {
         const params = new URLSearchParams({
-          from: dayjs(range.from).format('YYYY-MM-DD'),
-          to: dayjs(range.to).format('YYYY-MM-DD')
+          from: dayjs.utc(range.from).format('YYYY-MM-DD'),
+          to: dayjs.utc(range.to).format('YYYY-MM-DD')
         })
         const res = await fetch(`${API_BASE_URL}/api/admin/dashboard/bootstrap?${params.toString()}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -207,7 +212,11 @@ export default function Dashboard() {
     }
   }, [setAll, initDemoData, token, range.from, range.to])
 
-  const planColors = ['#d4d4d4', '#a3a3a3', '#737373', '#525252']
+  const usersByPlanDisplay: { name: Plan; value: number }[] = (() => {
+    const map = new Map<string, number>((metrics?.usersByPlan ?? []).map(i => [String(i.name).toLowerCase(), Number(i.value) || 0]))
+    return PLAN_ORDER.map(name => ({ name, value: map.get(name) ?? 0 })) as any
+  })()
+  const usersByPlanTotal = usersByPlanDisplay.reduce((acc, i) => acc + (i.value || 0), 0)
 
   const recentItems = metrics?.latestActivity ?? []
 
@@ -226,9 +235,21 @@ export default function Dashboard() {
       </div>
 
       {loading && (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: 16 }}>
-          <Spin />
-        </div>
+        <>
+          <Row gutter={16}>
+            <Col xs={24} sm={12} md={12} lg={6}><Skeleton active paragraph={{ rows: 2 }} /></Col>
+            <Col xs={24} sm={12} md={12} lg={6}><Skeleton active paragraph={{ rows: 2 }} /></Col>
+            <Col xs={24} sm={12} md={12} lg={6}><Skeleton active paragraph={{ rows: 2 }} /></Col>
+            <Col xs={24} sm={12} md={12} lg={6}><Skeleton active paragraph={{ rows: 2 }} /></Col>
+          </Row>
+          <Row gutter={16} style={{ marginTop: 16 }}>
+            <Col xs={24} lg={16}><Skeleton active paragraph={{ rows: 6 }} /></Col>
+            <Col xs={24} lg={8}><Skeleton active paragraph={{ rows: 6 }} /></Col>
+          </Row>
+          <Card title="Recent Activity (latest 50)" style={{ marginTop: 16 }}>
+            <Skeleton active paragraph={{ rows: 5 }} />
+          </Card>
+        </>
       )}
 
       <Row gutter={16}>
@@ -245,41 +266,44 @@ export default function Dashboard() {
       </Row>
 
       <Row gutter={16}>
-        <Col xs={24} lg={16}>
+        <Col xs={24}>
           <Card title="Revenue and signups">
             <div style={{ width: '100%', height: 260 }}>
               <ResponsiveContainer>
                 <BarChart data={metrics?.timeSeries ?? []}>
-                  <CartesianGrid stroke="#262626" vertical={false} />
-                  <XAxis dataKey="date" tick={{ fill: '#a3a3a3', fontSize: 11 }} />
+                  <CartesianGrid stroke={isDarkMode ? '#262626' : antdToken.colorBorder} vertical={false} />
+                  <XAxis dataKey="date" tick={{ fill: isDarkMode ? '#a3a3a3' : antdToken.colorTextSecondary, fontSize: 11 }} />
                   <YAxis
                     yAxisId="left"
-                    tick={{ fill: '#a3a3a3', fontSize: 11 }}
-                    stroke="#737373"
+                    tick={{ fill: isDarkMode ? '#a3a3a3' : antdToken.colorTextSecondary, fontSize: 11 }}
+                    stroke={isDarkMode ? '#737373' : antdToken.colorTextSecondary}
                   />
                   <YAxis
                     yAxisId="right"
                     orientation="right"
-                    tick={{ fill: '#a3a3a3', fontSize: 11 }}
-                    stroke="#737373"
+                    tick={{ fill: isDarkMode ? '#a3a3a3' : antdToken.colorTextSecondary, fontSize: 11 }}
+                    stroke={isDarkMode ? '#737373' : antdToken.colorTextSecondary}
                   />
                   <Tooltip
-                    contentStyle={{ background: '#050505', border: '1px solid #262626' }}
-                    labelStyle={{ color: '#f5f5f5' }}
+                    contentStyle={{
+                      background: isDarkMode ? '#050505' : antdToken.colorBgContainer,
+                      border: `1px solid ${isDarkMode ? '#262626' : antdToken.colorBorder}`
+                    }}
+                    labelStyle={{ color: isDarkMode ? '#f5f5f5' : antdToken.colorText }}
                   />
-                  <Legend wrapperStyle={{ color: '#a3a3a3' }} />
+                  <Legend wrapperStyle={{ color: isDarkMode ? '#a3a3a3' : antdToken.colorTextSecondary }} />
                   <Bar
                     yAxisId="left"
                     dataKey="revenue"
                     name="Revenue ($)"
-                    fill="#737373"
+                    fill={isDarkMode ? '#737373' : '#93c5fd'}
                     radius={[4, 4, 0, 0]}
                   />
                   <Bar
                     yAxisId="right"
                     dataKey="signups"
                     name="Signups"
-                    fill="#b3b3b3"
+                    fill={isDarkMode ? '#b3b3b3' : '#bfdbfe'}
                     radius={[4, 4, 0, 0]}
                   />
                 </BarChart>
@@ -287,33 +311,68 @@ export default function Dashboard() {
             </div>
           </Card>
         </Col>
-        <Col xs={24} lg={8}>
+      </Row>
+      
+      <Row gutter={16}>
+        <Col xs={24}>
           <Card title="Users by plan">
-            <div style={{ width: '100%', height: 260 }}>
-              <ResponsiveContainer>
-                <PieChart>
-                  <Pie
-                    data={metrics?.usersByPlan ?? []}
-                    dataKey="value"
-                    nameKey="name"
-                    innerRadius={60}
-                    outerRadius={90}
-                    paddingAngle={4}
-                  >
-                    {(metrics?.usersByPlan ?? []).map((entry, index) => (
-                      <Cell key={entry.name} fill={planColors[index % planColors.length]} />
-                    ))}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 12, boxSizing: 'border-box' }}>
+              <div style={{ width: '100%', height: 380, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+                    <Tooltip
+                      formatter={(value: number, name: string) => {
+                        const pct = usersByPlanTotal > 0 ? Math.round((value / usersByPlanTotal) * 100) : 0
+                        return [`${pct}% (${value} users)`, name]
+                      }}
+                      contentStyle={{
+                        background: isDarkMode ? '#050505' : antdToken.colorBgContainer,
+                        border: `1px solid ${isDarkMode ? '#262626' : antdToken.colorBorder}`,
+                        color: isDarkMode ? '#f5f5f5' : antdToken.colorText
+                      }}
+                      labelStyle={{ color: isDarkMode ? '#f5f5f5' : antdToken.colorText }}
+                      itemStyle={{ color: isDarkMode ? '#f5f5f5' : antdToken.colorText }}
+                    />
+                    <Pie
+                      data={usersByPlanDisplay}
+                      dataKey="value"
+                      nameKey="name"
+                      innerRadius="55%"
+                      outerRadius="85%"
+                      paddingAngle={2}
+                      isAnimationActive
+                      animationDuration={600}
+                      label={false}
+                      labelLine={false}
+                    >
+                      {usersByPlanDisplay.map(entry => (
+                        <Cell key={entry.name} fill={PLAN_COLORS[entry.name as keyof typeof PLAN_COLORS]} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center', alignItems: 'center' }}>
+                {usersByPlanDisplay.map(item => {
+                  const pct = usersByPlanTotal > 0 ? Math.round((item.value / usersByPlanTotal) * 100) : 0
+                  const color = PLAN_COLORS[item.name as keyof typeof PLAN_COLORS]
+                  return (
+                    <div key={item.name} style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 180 }}>
+                      <span style={{ width: 10, height: 10, borderRadius: 999, background: color }} />
+                      <span style={{ color }}>{item.name} – {pct}% ({item.value} users)</span>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           </Card>
         </Col>
       </Row>
 
-      <Card title="Recent Activity (latest 50)">
+      <Card title="Recent Activity">
         <List
           dataSource={recentItems}
+          pagination={{ pageSize: 10 }}
           renderItem={(item) => (
             <List.Item>
               <List.Item.Meta

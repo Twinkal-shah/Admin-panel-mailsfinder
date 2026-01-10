@@ -47,13 +47,17 @@ export default function App() {
             '"Bricolage Grotesque", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"'
         }
       : {
-          colorPrimary: '#737373',
-          colorText: '#0a0a0a',
-          colorBgBase: '#ffffff',
+          colorPrimary: '#2563eb',
+          colorText: '#111827',
+          colorTextSecondary: '#6b7280',
+          colorBgBase: '#f7f7f9',
+          colorBgLayout: '#f7f7f9',
           colorBgContainer: '#ffffff',
           colorBorder: '#e5e7eb',
           colorBorderSecondary: '#e5e7eb',
-          borderRadius: 10,
+          borderRadius: 12,
+          boxShadow: '0 1px 2px rgba(12,16,23,0.06)',
+          boxShadowSecondary: '0 6px 20px rgba(12,16,23,0.08)',
           fontFamily:
             '"Bricolage Grotesque", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"'
         }

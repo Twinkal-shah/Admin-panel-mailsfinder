@@ -1,7 +1,7 @@
 import { useParams } from 'react-router-dom'
 import { useDataStore } from '../store/data'
 import { useMemo, useState } from 'react'
-import { Card, Descriptions, Typography, Row, Col, Button, Modal, Form, Input, Table, Tag } from 'antd'
+import { Card, Descriptions, Typography, Row, Col, Button, Modal, Form, Input, Table, Tag, message } from 'antd'
 import dayjs from 'dayjs'
 import { ApiKey, Purchase, User } from '../types/types'
 import { useAuthStore } from '../store/auth'
@@ -20,25 +20,40 @@ export default function UserDetail() {
   const [showFullKey, setShowFullKey] = useState<string | null>(null)
   const [rateLimit, setRateLimit] = useState<number>(60)
   const [notes, setNotes] = useState<string>(user?.admin_notes || '')
+  const [creditsLoading, setCreditsLoading] = useState(false)
+  const [createLoading, setCreateLoading] = useState(false)
+  const isDarkMode = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'dark'
+  const [recentlyUpdatedIds, setRecentlyUpdatedIds] = useState<Set<string>>(new Set())
 
   if (!user) return <Typography.Text>User not found</Typography.Text>
 
   function confirmCredits() {
     if (!user) return
-    addCredits(user.id, creditsModal.delta, admin.id, creditsModal.reason)
-    setCreditsModal({ open: false, delta: 0, reason: '' })
+    setCreditsLoading(true)
+    setTimeout(() => {
+      addCredits(user.id, creditsModal.delta, admin.id, creditsModal.reason)
+      setCreditsLoading(false)
+      setCreditsModal({ open: false, delta: 0, reason: '' })
+      message.success('Credits updated')
+    }, 300)
   }
 
   function handleCreateKey() {
     if (!user) return
-    const created = createApiKey({ userId: user.id, rateLimitPerMinute: rateLimit }, admin.id)
-    setShowFullKey(created.fullKey)
-    setCreateKeyOpen(false)
+    setCreateLoading(true)
+    setTimeout(() => {
+      const created = createApiKey({ userId: user.id, rateLimitPerMinute: rateLimit }, admin.id)
+      setShowFullKey(created.fullKey)
+      setCreateLoading(false)
+      setCreateKeyOpen(false)
+      message.success('API Key created')
+    }, 300)
   }
 
   function saveNotes() {
     if (!user) return
     updateUserNotes(user.id, notes)
+    message.success('Notes saved')
   }
 
   const purchaseColumns = [
@@ -56,18 +71,19 @@ export default function UserDetail() {
     {
       title: 'status',
       dataIndex: 'status',
-      render: (s: string) => (
-        <Tag
-          style={{
-            borderRadius: 999,
-            borderColor: '#374151',
-            background: '#050507',
-            color: '#d1d5db'
-          }}
-        >
-          {s}
-        </Tag>
-      )
+      render: (s: string) => {
+        const stylesLight: Record<string, { bg: string; text: string; border: string }> = {
+          active: { bg: '#ecfdf5', text: '#065f46', border: '#d1fae5' },
+          revoked: { bg: '#fef2f2', text: '#7f1d1d', border: '#fee2e2' }
+        }
+        const stylesDark = { bg: '#0b0b0d', text: '#d1d5db', border: '#374151' }
+        const sConf = isDarkMode ? stylesDark : stylesLight[s] || stylesLight.active
+        return (
+          <Tag style={{ borderRadius: 999, background: sConf.bg, color: sConf.text, borderColor: sConf.border }}>
+            {s}
+          </Tag>
+        )
+      }
     },
     {
       title: 'Actions',
@@ -80,7 +96,14 @@ export default function UserDetail() {
             content: 'This is a destructive action. Confirm revoke?',
             okText: 'Revoke',
             okButtonProps: { danger: true },
-            onOk: () => revokeApiKey(record.id, admin.id, 'Revoked by admin')
+            onOk: () => {
+              revokeApiKey(record.id, admin.id, 'Revoked by admin')
+              setRecentlyUpdatedIds(prev => new Set([...prev, record.id]))
+              setTimeout(() => {
+                setRecentlyUpdatedIds(prev => { const next = new Set([...prev]); next.delete(record.id); return next })
+              }, 1200)
+              message.success('API Key revoked')
+            }
           })}
         >
           Revoke
@@ -148,6 +171,7 @@ export default function UserDetail() {
               pagination={false}
               scroll={{ x: 'max-content' }}
               size="small"
+              rowClassName={(record) => recentlyUpdatedIds.has(record.id) ? 'row-refresh' : ''}
             />
             {showFullKey && (
               <Card style={{ marginTop: 12 }} title="New Key">
@@ -187,6 +211,8 @@ export default function UserDetail() {
         onOk={confirmCredits}
         onCancel={() => setCreditsModal({ open: false, delta: 0, reason: '' })}
         okButtonProps={{ disabled: !creditsModal.reason }}
+        className="mf-modal"
+        confirmLoading={creditsLoading}
       >
         <Form layout="vertical">
           <Form.Item label="Delta (positive adds, negative subtracts)">
@@ -206,6 +232,8 @@ export default function UserDetail() {
         open={createKeyOpen}
         onOk={handleCreateKey}
         onCancel={() => setCreateKeyOpen(false)}
+        className="mf-modal"
+        confirmLoading={createLoading}
       >
         <Form layout="vertical">
           <Form.Item label="rateLimitPerMinute" required>

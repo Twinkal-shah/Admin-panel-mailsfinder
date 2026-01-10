@@ -1,4 +1,4 @@
-import { Layout, Menu, Typography, Dropdown, Button, Drawer, Grid, Switch } from 'antd'
+import { Layout, Menu, Typography, Dropdown, Button, Drawer, Grid, Switch, theme } from 'antd'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   DashboardOutlined,
@@ -20,6 +20,7 @@ export default function LayoutShell({ isDark, onToggleTheme }: { isDark: boolean
   const screens = Grid.useBreakpoint()
   const isMobile = !screens.md
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const { token: antdToken } = theme.useToken()
   const selectedKey =
     location.pathname === '/'
       ? '/'
@@ -44,7 +45,7 @@ export default function LayoutShell({ isDark, onToggleTheme }: { isDark: boolean
   )
 
   return (
-    <Layout style={{ minHeight: '100vh', background: isDark ? '#050505' : '#ffffff' }}>
+    <Layout style={{ minHeight: '100vh', background: isDark ? '#050505' : antdToken.colorBgLayout }}>
       {!isMobile && (
         <Sider width={220} theme={isDark ? 'dark' : 'light'}>
           <div style={{ padding: 16 }}>
@@ -70,8 +71,8 @@ export default function LayoutShell({ isDark, onToggleTheme }: { isDark: boolean
             alignItems: 'center',
             justifyContent: 'space-between',
             paddingInline: isMobile ? 12 : 20,
-            background: isDark ? '#050505' : '#ffffff',
-            borderBottom: isDark ? '1px solid #262626' : '1px solid #e5e7eb'
+            background: isDark ? '#050505' : antdToken.colorBgContainer,
+            borderBottom: isDark ? '1px solid #262626' : `1px solid ${antdToken.colorBorder}`
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -93,7 +94,9 @@ export default function LayoutShell({ isDark, onToggleTheme }: { isDark: boolean
           </div>
         </Header>
         <Content style={{ padding: isMobile ? 12 : 24 }}>
-          <Outlet />
+          <div className="page-transition" key={selectedKey}>
+            <Outlet />
+          </div>
         </Content>
       </Layout>
       {isMobile && (
@@ -102,7 +105,7 @@ export default function LayoutShell({ isDark, onToggleTheme }: { isDark: boolean
           placement="left"
           open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
-          bodyStyle={{ padding: 0, background: isDark ? '#050505' : '#ffffff' }}
+          bodyStyle={{ padding: 0, background: isDark ? '#050505' : antdToken.colorBgContainer }}
         >
           <Menu
             theme={isDark ? 'dark' : 'light'}

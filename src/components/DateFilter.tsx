@@ -1,5 +1,7 @@
 import { DatePicker, Segmented } from 'antd'
 import dayjs from 'dayjs'
+import utc from 'dayjs/plugin/utc'
+dayjs.extend(utc)
 
 export type DatePreset = 'Today' | '7d' | '30d' | 'This month' | 'Custom range'
 export interface DateRange {
@@ -17,7 +19,7 @@ export default function DateFilter(props: {
   const presets: DatePreset[] = ['Today', '7d', '30d', 'This month', 'Custom range']
 
   function computeRange(preset: DatePreset): DateRange {
-    const now = dayjs()
+    const now = dayjs.utc()
     switch (preset) {
       case 'Today':
         return { from: now.startOf('day').toISOString(), to: now.endOf('day').toISOString(), preset }
@@ -42,9 +44,13 @@ export default function DateFilter(props: {
 
   function onRangeChange(range: any) {
     if (!range || !range[0] || !range[1]) return
+    const fromLocal = range[0]
+    const toLocal = range[1]
+    const fromIso = dayjs.utc(new Date(Date.UTC(fromLocal.year(), fromLocal.month(), fromLocal.date(), 0, 0, 0))).toISOString()
+    const toIso = dayjs.utc(new Date(Date.UTC(toLocal.year(), toLocal.month(), toLocal.date(), 23, 59, 59))).toISOString()
     props.onChange({
-      from: range[0].startOf('day').toISOString(),
-      to: range[1].endOf('day').toISOString(),
+      from: fromIso,
+      to: toIso,
       preset: 'Custom range'
     })
   }

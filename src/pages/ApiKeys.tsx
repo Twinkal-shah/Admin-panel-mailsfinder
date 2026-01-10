@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useDataStore } from '../store/data'
-import { Card, Table, Tag, Typography, Button, Modal, Form, Input, Select } from 'antd'
+import { Card, Table, Tag, Typography, Button, Modal, Form, Input, Select, Skeleton, message, theme } from 'antd'
 import dayjs from 'dayjs'
 import { ApiKey, User } from '../types/types'
 import { useAuthStore } from '../store/auth'
@@ -15,6 +15,11 @@ export default function ApiKeys() {
   const [fullKey, setFullKey] = useState<string | null>(null)
   const [revokeModal, setRevokeModal] = useState<{ open: boolean; keyId?: string; reason: string }>({ open: false, reason: '' })
   const [rateModal, setRateModal] = useState<{ open: boolean; keyId?: string; rate: number }>({ open: false, rate: 60 })
+  const [loading, setLoading] = useState(false)
+  const [revokeLoading, setRevokeLoading] = useState(false)
+  const [rateLoading, setRateLoading] = useState(false)
+  const [recentlyUpdatedIds, setRecentlyUpdatedIds] = useState<Set<string>>(new Set())
+  const isDarkMode = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'dark'
 
   useEffect(() => {
     if (users.length === 0) initDemoData()
@@ -26,6 +31,7 @@ export default function ApiKeys() {
     async function loadKeys() {
       if (apiKeys.length > 0) return
       try {
+        setLoading(true)
         const bearer = token || localStorage.getItem('ADMIN_TOKEN') || ''
         const res = await fetch(`${API_BASE_URL}/api/admin/dashboard/bootstrap`, {
           headers: { Authorization: bearer ? `Bearer ${bearer}` : '' },
@@ -54,7 +60,9 @@ export default function ApiKeys() {
           createdAt: (k.createdAt && new Date(k.createdAt).toISOString()) || new Date().toISOString()
         }))
         if (mapped.length > 0) setAll({ apiKeys: mapped })
-      } catch {}
+      } catch {} finally {
+        if (!cancelled) setLoading(false)
+      }
     }
     loadKeys()
     return () => {
@@ -71,18 +79,19 @@ export default function ApiKeys() {
     {
       title: 'status',
       dataIndex: 'status',
-      render: (s: string) => (
-        <Tag
-          style={{
-            borderRadius: 999,
-            borderColor: '#374151',
-            background: '#050507',
-            color: '#d1d5db'
-          }}
-        >
-          {s}
-        </Tag>
-      )
+      render: (s: string) => {
+        const stylesLight: Record<string, { bg: string; text: string; border: string }> = {
+          active: { bg: '#ecfdf5', text: '#065f46', border: '#d1fae5' },
+          revoked: { bg: '#fef2f2', text: '#7f1d1d', border: '#fee2e2' }
+        }
+        const stylesDark = { bg: '#0b0b0d', text: '#d1d5db', border: '#374151' }
+        const sConf = isDarkMode ? stylesDark : stylesLight[s] || stylesLight.active
+        return (
+          <Tag style={{ borderRadius: 999, background: sConf.bg, color: sConf.text, borderColor: sConf.border }}>
+            {s}
+          </Tag>
+        )
+      }
     },
     {
       title: 'Actions',
@@ -103,16 +112,41 @@ export default function ApiKeys() {
     const created = createApiKey({ userId, rateLimitPerMinute: rateLimit }, admin.id)
     setFullKey(created.fullKey)
     setCreateOpen(false)
+    setRecentlyUpdatedIds(prev => new Set([...prev, created.key.id]))
+    setTimeout(() => {
+      setRecentlyUpdatedIds(prev => {
+        const next = new Set([...prev]); next.delete(created.key.id); return next
+      })
+    }, 1200)
+    message.success('API Key created')
   }
   function confirmRevoke() {
     if (!revokeModal.keyId) return
-    revokeApiKey(revokeModal.keyId, admin.id, revokeModal.reason || 'Revoked')
-    setRevokeModal({ open: false, reason: '' })
+    setRevokeLoading(true)
+    setTimeout(() => {
+      revokeApiKey(revokeModal.keyId!, admin.id, revokeModal.reason || 'Revoked')
+      setRevokeLoading(false)
+      setRevokeModal({ open: false, reason: '' })
+      setRecentlyUpdatedIds(prev => new Set([...prev, revokeModal.keyId!]))
+      setTimeout(() => {
+        setRecentlyUpdatedIds(prev => { const next = new Set([...prev]); next.delete(revokeModal.keyId!); return next })
+      }, 1200)
+      message.success('API Key revoked')
+    }, 300)
   }
   function confirmSetRate() {
     if (!rateModal.keyId) return
-    updateApiKeyRateLimit(rateModal.keyId, rateModal.rate)
-    setRateModal({ open: false, rate: 60 })
+    setRateLoading(true)
+    setTimeout(() => {
+      updateApiKeyRateLimit(rateModal.keyId!, rateModal.rate)
+      setRateLoading(false)
+      setRateModal({ open: false, rate: 60 })
+      setRecentlyUpdatedIds(prev => new Set([...prev, rateModal.keyId!]))
+      setTimeout(() => {
+        setRecentlyUpdatedIds(prev => { const next = new Set([...prev]); next.delete(rateModal.keyId!); return next })
+      }, 1200)
+      message.success('Rate limit updated')
+    }, 300)
   }
 
   return (
@@ -124,14 +158,19 @@ export default function ApiKeys() {
         </Button>
       </div>
       <Card>
-        <Table<ApiKey>
-          rowKey="id"
-          dataSource={apiKeys}
-          columns={columns}
-          pagination={{ pageSize: 10 }}
-          scroll={{ x: 'max-content' }}
-          size="small"
-        />
+        {loading && apiKeys.length === 0 ? (
+          <Skeleton active paragraph={{ rows: 4 }} />
+        ) : (
+          <Table<ApiKey>
+            rowKey="id"
+            dataSource={apiKeys}
+            columns={columns}
+            pagination={{ pageSize: 10 }}
+            scroll={{ x: 'max-content' }}
+            size="small"
+            rowClassName={(record) => recentlyUpdatedIds.has(record.id) ? 'row-refresh' : ''}
+          />
+        )}
       </Card>
 
       {fullKey && (
@@ -145,6 +184,7 @@ export default function ApiKeys() {
         open={createOpen}
         onOk={handleCreate}
         onCancel={() => setCreateOpen(false)}
+        className="mf-modal"
       >
         <Form layout="vertical">
           <Form.Item label="User">
@@ -169,6 +209,8 @@ export default function ApiKeys() {
         onOk={confirmRevoke}
         onCancel={() => setRevokeModal({ open: false, reason: '' })}
         okButtonProps={{ danger: true }}
+        className="mf-modal"
+        confirmLoading={revokeLoading}
       >
         <Typography.Paragraph type="secondary">
           This is a destructive action. Please confirm revocation.
@@ -184,6 +226,8 @@ export default function ApiKeys() {
         open={rateModal.open}
         onOk={confirmSetRate}
         onCancel={() => setRateModal({ open: false, rate: 60 })}
+        className="mf-modal"
+        confirmLoading={rateLoading}
       >
         <Form layout="vertical">
           <Form.Item label="rateLimitPerMinute">
