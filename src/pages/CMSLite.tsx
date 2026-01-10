@@ -23,7 +23,7 @@ export default function CMSLite() {
       setLoading(true)
       setBackendError(null)
       try {
-        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
+        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8000' : 'https://server.mailsfinder.com')
         const bearer = token || localStorage.getItem('ADMIN_TOKEN') || ''
         const res = await fetch(`${API_BASE_URL}/api/admin/contentManagement/getAllContent`, {
           headers: { Authorization: bearer ? `Bearer ${bearer}` : '' }
@@ -76,7 +76,7 @@ export default function CMSLite() {
       body: values.body,
       attachments: values.attachments?.split(',').map((s: string) => s.trim()).filter(Boolean) || []
     }
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8000' : 'https://server.mailsfinder.com')
     setSaving(true)
     try {
       if (editing?.id) {
@@ -133,7 +133,7 @@ export default function CMSLite() {
 
   async function confirmPublish() {
     if (!editing?.id) return
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8000' : 'https://server.mailsfinder.com')
     try {
       const bearer4 = token || localStorage.getItem('ADMIN_TOKEN') || ''
       const res = await fetch(`${API_BASE_URL}/api/admin/contentManagement/updatedContent/${editing.id}`, {
