@@ -161,7 +161,7 @@ html[data-theme="light"], body[data-theme="light"] {
 
 [data-theme="dark"] .ant-modal .ant-btn-default,
 [data-theme="dark"] .ant-modal-confirm .ant-btn-default {
-  color: #111827 !important;
+  color: #e5e7eb !important;
 }
 
 [data-theme="dark"] .ant-menu-item {

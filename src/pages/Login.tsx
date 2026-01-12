@@ -19,7 +19,6 @@ export default function Login() {
       const res = await fetch(`${API_BASE_URL}/api/admin/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ email, password: String(values.password || '') })
       })
       if (!res.ok) {
