@@ -49,7 +49,7 @@ export const useDataStore = create<DataState>((set, get) => ({
     ]
     const users: User[] = seed.map((base, i) => {
       const id = uuidv4()
-      const plan: User['plan'] = i % 4 === 0 ? 'free' : i % 4 === 1 ? 'pro' : i % 4 === 2 ? 'agency' : 'lifetime'
+      const plan: User['plan'] = i % 4 === 0 ? 'free' : i % 4 === 1 ? 'monthly' : i % 4 === 2 ? 'lifetime' : 'payg'
       const subs: User['subscription_status'] = plan === 'free' ? 'none' : 'active'
       const credits_find = Math.floor(Math.random() * 200000)
       const credits_verify = Math.floor(Math.random() * 200000)
@@ -72,6 +72,12 @@ export const useDataStore = create<DataState>((set, get) => ({
         email_verified: true
       }
     })
+    const PLAN_PRICES: Record<User['plan'], number | null> = {
+      free: 0,
+      monthly: 49,
+      lifetime: 249,
+      payg: null
+    }
     const purchases: Purchase[] = users
       .filter(u => u.plan !== 'free')
       .map(u => ({
@@ -80,7 +86,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         planName: u.plan,
         status: Math.random() > 0.1 ? 'paid' : 'refunded',
         date: dayjs(u.createdAt).add(Math.floor(Math.random() * 20), 'day').toISOString(),
-        amount: u.plan === 'pro' ? 49 : u.plan === 'agency' ? 99 : u.plan === 'lifetime' ? 199 : 0
+        amount: PLAN_PRICES[u.plan] ?? 0
       }))
     const apiKeys: ApiKey[] = users.slice(0, 10).map(u => {
       const full = uuidv4().replace(/-/g, '') + uuidv4().replace(/-/g, '')

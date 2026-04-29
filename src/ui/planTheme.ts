@@ -1,12 +1,12 @@
-export type PlanId = 'free' | 'pro' | 'agency' | 'lifetime'
+export type PlanId = 'free' | 'monthly' | 'lifetime' | 'payg'
 
-export const PLAN_ORDER: PlanId[] = ['free', 'pro', 'agency', 'lifetime']
+export const PLAN_ORDER: PlanId[] = ['free', 'monthly', 'lifetime', 'payg']
 
 export const PLAN_COLORS: Record<PlanId, string> = {
   free: '#94A3B8',
-  pro: '#3B82F6',
-  agency: '#8B5CF6',
-  lifetime: '#F59E0B'
+  monthly: '#3B82F6',
+  lifetime: '#F59E0B',
+  payg: '#8B5CF6'
 }
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } {

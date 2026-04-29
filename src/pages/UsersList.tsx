@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useDataStore } from '../store/data'
 import { Button, Card, Form, Input, Modal, Select, Table, Tag, Typography, DatePicker, Grid, Alert, Skeleton, message, theme } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import { User } from '../types/types'
-import { PLAN_COLORS, badgeStyles, rowAccentStyle } from '../ui/planTheme'
+import { PLAN_DISPLAY_NAME, User } from '../types/types'
+import { PLAN_COLORS, PLAN_ORDER, badgeStyles, rowAccentStyle } from '../ui/planTheme'
 import dayjs from 'dayjs'
 import { useAuthStore } from '../store/auth'
 import { hasScope } from '../store/rbac'
@@ -19,7 +19,7 @@ export default function UsersList() {
   const isDarkMode = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'dark'
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([])
   const [filters, setFilters] = useState<{
-    plan?: 'free' | 'pro' | 'agency' | 'lifetime' | 'all'
+    plan?: User['plan'] | 'all'
     email_verified?: boolean | 'all'
     subscription_status?: 'active' | 'cancelled' | 'past_due' | 'none' | 'all'
     country?: string
@@ -65,7 +65,7 @@ export default function UsersList() {
         const mapped: User[] = source.map((u: any) => {
           const planRaw = String(u.plan ?? 'free').toLowerCase()
           const plan: User['plan'] =
-            planRaw === 'pro' || planRaw === 'agency' || planRaw === 'lifetime' ? (planRaw as User['plan']) : 'free'
+            planRaw === 'monthly' || planRaw === 'lifetime' || planRaw === 'payg' ? (planRaw as User['plan']) : 'free'
           const subscription_status: User['subscription_status'] = plan === 'free' ? 'none' : 'active'
           const credits_find = Number(u.credits_find ?? 0)
           const credits_verify = Number(u.credits_verify ?? 0)
@@ -132,7 +132,7 @@ export default function UsersList() {
       const mapped: User[] = source.map((u: any) => {
         const planRaw = String(u.plan ?? 'free').toLowerCase()
         const plan: User['plan'] =
-          planRaw === 'pro' || planRaw === 'agency' || planRaw === 'lifetime' ? (planRaw as User['plan']) : 'free'
+          planRaw === 'monthly' || planRaw === 'lifetime' || planRaw === 'payg' ? (planRaw as User['plan']) : 'free'
         const subscription_status: User['subscription_status'] = plan === 'free' ? 'none' : 'active'
         const credits_find = Number(u.credits_find ?? 0)
         const credits_verify = Number(u.credits_verify ?? 0)
@@ -198,7 +198,7 @@ export default function UsersList() {
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
       >
-        {plan}
+        {PLAN_DISPLAY_NAME[plan]}
       </Tag>
     )
   }
@@ -344,7 +344,7 @@ export default function UsersList() {
       const patch: any = {}
       const nextPlan = String(values.plan ?? '').toLowerCase()
       if (nextPlan && nextPlan !== editingUser.plan) {
-        if (['free', 'pro', 'agency', 'lifetime'].includes(nextPlan)) {
+        if ((['free', 'monthly', 'lifetime', 'payg'] as const).includes(nextPlan as any)) {
           patch.plan = nextPlan
         }
       }
@@ -378,7 +378,7 @@ export default function UsersList() {
         if (u && (u._id || u.id)) {
           const planRaw = String(u.plan ?? 'free').toLowerCase()
           const plan: User['plan'] =
-            planRaw === 'pro' || planRaw === 'agency' || planRaw === 'lifetime' ? (planRaw as User['plan']) : 'free'
+            planRaw === 'monthly' || planRaw === 'lifetime' || planRaw === 'payg' ? (planRaw as User['plan']) : 'free'
           const credits_find = Number(u.credits_find ?? 0)
           const credits_verify = Number(u.credits_verify ?? 0)
           const credits_total = Number(u.credits ?? credits_find + credits_verify)
@@ -515,12 +515,12 @@ export default function UsersList() {
               style={{ width: isMobile ? '100%' : 160 }}
               options={[
                 { value: 'all', label: 'All' },
-                ...['free', 'pro', 'agency', 'lifetime'].map(p => ({
+                ...PLAN_ORDER.map(p => ({
                   value: p,
                   label: (
                     <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ width: 10, height: 10, borderRadius: 999, background: PLAN_COLORS[p as keyof typeof PLAN_COLORS] }} />
-                      <span style={{ color: PLAN_COLORS[p as keyof typeof PLAN_COLORS] }}>{p}</span>
+                      <span style={{ width: 10, height: 10, borderRadius: 999, background: PLAN_COLORS[p] }} />
+                      <span style={{ color: PLAN_COLORS[p] }}>{PLAN_DISPLAY_NAME[p]}</span>
                     </span>
                   )
                 }))
@@ -648,12 +648,10 @@ export default function UsersList() {
         <Form form={editForm} layout="vertical">
           <Form.Item name="plan" label="Plan" rules={[{ required: true }]}> 
             <Select
-              options={[
-                { value: 'free', label: <span style={{ color: PLAN_COLORS.free }}>Free</span> },
-                { value: 'pro', label: <span style={{ color: PLAN_COLORS.pro }}>Pro</span> },
-                { value: 'agency', label: <span style={{ color: PLAN_COLORS.agency }}>Agency</span> },
-                { value: 'lifetime', label: <span style={{ color: PLAN_COLORS.lifetime }}>Lifetime</span> }
-              ]}
+              options={PLAN_ORDER.map(p => ({
+                value: p,
+                label: <span style={{ color: PLAN_COLORS[p] }}>{PLAN_DISPLAY_NAME[p]}</span>
+              }))}
             />
           </Form.Item>
           <Form.Item name="credits_total" label="Available Credits" rules={[{ required: true }]}> 

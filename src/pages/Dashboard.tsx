@@ -16,7 +16,7 @@ import {
 import DateFilter, { DateRange, DatePreset } from '../components/DateFilter'
 import { useDataStore } from '../store/data'
 import { useAuthStore } from '../store/auth'
-import { Plan, SubscriptionStatus } from '../types/types'
+import { PLAN_DISPLAY_NAME, Plan, SubscriptionStatus } from '../types/types'
 import { PLAN_COLORS, PLAN_ORDER } from '../ui/planTheme'
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
@@ -92,7 +92,7 @@ export default function Dashboard() {
             ? body.users.map((u: any) => {
                 const planRaw = String(u.plan ?? 'free').toLowerCase()
                 const plan: Plan =
-                  planRaw === 'pro' || planRaw === 'agency' || planRaw === 'lifetime'
+                  planRaw === 'monthly' || planRaw === 'lifetime' || planRaw === 'payg'
                     ? (planRaw as Plan)
                     : 'free'
 
@@ -142,7 +142,7 @@ export default function Dashboard() {
             ? body.purchases.map((p: any) => {
                 const planRaw = String(p.planName ?? p.plan_name ?? 'free').toLowerCase()
                 const planName: Plan =
-                  planRaw === 'pro' || planRaw === 'agency' || planRaw === 'lifetime'
+                  planRaw === 'monthly' || planRaw === 'lifetime' || planRaw === 'payg'
                     ? (planRaw as Plan)
                     : 'free'
 
@@ -358,7 +358,7 @@ export default function Dashboard() {
                   return (
                     <div key={item.name} style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 180 }}>
                       <span style={{ width: 10, height: 10, borderRadius: 999, background: color }} />
-                      <span style={{ color }}>{item.name} – {pct}% ({item.value} users)</span>
+                      <span style={{ color }}>{PLAN_DISPLAY_NAME[item.name as Plan] ?? item.name} – {pct}% ({item.value} users)</span>
                     </div>
                   )
                 })}

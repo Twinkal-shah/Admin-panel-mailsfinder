@@ -1,6 +1,13 @@
-export type Plan = 'free' | 'pro' | 'agency' | 'lifetime'
+export type Plan = 'free' | 'monthly' | 'lifetime' | 'payg'
 export type SubscriptionStatus = 'active' | 'cancelled' | 'past_due' | 'none'
 export type CountryCode = string
+
+export const PLAN_DISPLAY_NAME: Record<Plan, string> = {
+  free: 'Free',
+  monthly: 'Monthly',
+  lifetime: 'Lifetime',
+  payg: 'Pay-as-you-go'
+}
 
 export interface User {
   id: string
@@ -18,6 +25,14 @@ export interface User {
   subscription_status: SubscriptionStatus
   email_verified: boolean
   admin_notes?: string
+  monthly_balance?: number
+  lifetime_balance?: number
+  payg_balance?: number
+  free_daily_balance?: number
+  billing_cycle?: string
+  cycle_end_date?: string
+  lemonsqueezy_customer_id?: string
+  lemonsqueezy_portal_url?: string
 }
 
 export interface Purchase {
