@@ -45,7 +45,7 @@ export default function LayoutShell({ isDark, onToggleTheme }: { isDark: boolean
   )
 
   return (
-    <Layout style={{ minHeight: '100vh', background: isDark ? '#050505' : antdToken.colorBgLayout }}>
+    <Layout style={{ minHeight: '100vh', background: isDark ? '#121212' : antdToken.colorBgLayout }}>
       {!isMobile && (
         <Sider width={220} theme={isDark ? 'dark' : 'light'}>
           <div style={{ padding: 16 }}>
@@ -60,7 +60,7 @@ export default function LayoutShell({ isDark, onToggleTheme }: { isDark: boolean
             items={items}
             selectedKeys={[selectedKey]}
             onClick={({ key }) => navigate(key)}
-            style={{ borderInlineEnd: isDark ? '1px solid #262626' : undefined }}
+            style={{ borderInlineEnd: isDark ? '1px solid rgba(183, 29, 63, 0.25)' : undefined }}
           />
         </Sider>
       )}
@@ -71,8 +71,8 @@ export default function LayoutShell({ isDark, onToggleTheme }: { isDark: boolean
             alignItems: 'center',
             justifyContent: 'space-between',
             paddingInline: isMobile ? 12 : 20,
-            background: isDark ? '#050505' : antdToken.colorBgContainer,
-            borderBottom: isDark ? '1px solid #262626' : `1px solid ${antdToken.colorBorder}`
+            background: isDark ? '#121212' : antdToken.colorBgContainer,
+            borderBottom: isDark ? '1px solid rgba(183, 29, 63, 0.25)' : `1px solid ${antdToken.colorBorder}`
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -105,7 +105,7 @@ export default function LayoutShell({ isDark, onToggleTheme }: { isDark: boolean
           placement="left"
           open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
-          bodyStyle={{ padding: 0, background: isDark ? '#050505' : antdToken.colorBgContainer }}
+          bodyStyle={{ padding: 0, background: isDark ? '#121212' : antdToken.colorBgContainer }}
         >
           <Menu
             theme={isDark ? 'dark' : 'light'}

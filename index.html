@@ -6,11 +6,11 @@
     <title>MailsFinder Admin</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
       html, body, #root { height: 100%; }
       body { margin: 0; }
-      /* Global font across themes */
+      /* Match the production frontend font (Space Grotesk) across all Antd primitives */
       body,
       #root,
       .ant-typography,
@@ -25,18 +25,33 @@
       .ant-layout,
       .ant-card,
       .ant-dropdown-menu {
-        font-family: "Bricolage Grotesque", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol" !important;
+        font-family: "Space Grotesk", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol" !important;
       }
 
-      /* Dark theme variables and component overrides */
-      :root[data-theme="dark"] {
-        --bg: #050507;
-        --panel: #101014;
-        --muted: #9ca3af;
-        --text: #f3f4f6;
-        --primary: #4b5563;
-        --accent-soft: #1f2933;
+      /* Light theme variables (matches production frontend) */
+      :root[data-theme="light"] {
+        --bg: #fbf9f8;
+        --panel: #fbf9f8;
+        --muted: #5a4042;
+        --text: #1b1c1b;
+        --primary: #b71d3f;
+        --accent: #fc536d;
+        --border: rgba(226, 190, 191, 0.3);
       }
+
+      /* Dark theme variables (matches production frontend) */
+      :root[data-theme="dark"] {
+        --bg: #1b1c1b;
+        --panel: #2a2a2a;
+        --muted: #e2bebf;
+        --text: #fbf9f8;
+        --primary: #b71d3f;
+        --accent: #fc536d;
+        --border: rgba(183, 29, 63, 0.25);
+        --sidebar: #121212;
+        --sidebar-accent: #1f1f1f;
+      }
+
       html[data-theme="dark"] body {
         background: var(--bg);
         color: var(--text);

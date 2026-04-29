@@ -1,11 +1,31 @@
-/* Light mode variables */
+/* Light mode variables — aligned with production frontend tokens */
 [data-theme="light"] {
-  --mf-primary: #2563eb;
-  --mf-bg-soft: #f7f7f9;
-  --mf-text: #111827;
-  --mf-text-secondary: #6b7280;
-  --mf-border: #e5e7eb;
-  --mf-card-shadow: 0 6px 20px rgba(12,16,23,0.08);
+  --mf-primary: #b71d3f;
+  --mf-primary-soft: rgba(183, 29, 63, 0.08);
+  --mf-primary-soft-hover: rgba(183, 29, 63, 0.12);
+  --mf-accent: #fc536d;
+  --mf-bg-soft: #fbf9f8;
+  --mf-text: #1b1c1b;
+  --mf-text-secondary: #5a4042;
+  --mf-border: rgba(226, 190, 191, 0.3);
+  --mf-card-shadow: 0 6px 20px rgba(91, 28, 47, 0.06);
+  --mf-row-hover: #f5ecec;
+  --mf-row-selected: rgba(183, 29, 63, 0.06);
+}
+
+/* Dark mode variables */
+[data-theme="dark"] {
+  --mf-primary: #b71d3f;
+  --mf-primary-soft: rgba(183, 29, 63, 0.18);
+  --mf-primary-soft-hover: rgba(183, 29, 63, 0.28);
+  --mf-accent: #fc536d;
+  --mf-bg-soft: #1b1c1b;
+  --mf-text: #fbf9f8;
+  --mf-text-secondary: #e2bebf;
+  --mf-border: rgba(183, 29, 63, 0.25);
+  --mf-card-shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 32px rgba(0,0,0,0.45);
+  --mf-row-hover: #242424;
+  --mf-row-selected: rgba(183, 29, 63, 0.18);
 }
 
 /* Layout background */
@@ -13,7 +33,7 @@ html[data-theme="light"], body[data-theme="light"] {
   background-color: var(--mf-bg-soft);
 }
 
-/* Card: subtle shadow, smooth hover */
+/* ---------- Card ---------- */
 [data-theme="light"] .ant-card {
   box-shadow: var(--mf-card-shadow);
   transition: transform 160ms ease, box-shadow 160ms ease;
@@ -22,53 +42,83 @@ html[data-theme="light"], body[data-theme="light"] {
 }
 [data-theme="light"] .ant-card:hover {
   transform: translateY(-1px);
-  box-shadow: 0 12px 28px rgba(12,16,23,0.12);
+  box-shadow: 0 12px 28px rgba(91, 28, 47, 0.10);
 }
 
-/* Buttons: gentle hover lift */
+[data-theme="dark"] .ant-card {
+  background: #2a2a2a;
+  border: 1px solid var(--mf-border);
+  box-shadow: var(--mf-card-shadow);
+  transition: transform 160ms ease, box-shadow 160ms ease;
+  border-radius: 12px;
+}
+[data-theme="dark"] .ant-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.55);
+}
+
+/* ---------- Buttons ---------- */
 .ant-btn {
   transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
 }
 [data-theme="light"] .ant-btn:hover {
   transform: translateY(-0.5px);
-  box-shadow: 0 8px 20px rgba(37,99,235,0.12);
+  box-shadow: 0 8px 20px rgba(183, 29, 63, 0.12);
 }
 [data-theme="light"] .ant-btn-primary:hover {
-  box-shadow: 0 10px 24px rgba(37,99,235,0.18);
+  box-shadow: 0 10px 24px rgba(183, 29, 63, 0.22);
+}
+[data-theme="dark"] .ant-btn:hover {
+  transform: translateY(-0.5px) scale(1.015);
+  box-shadow: 0 10px 28px rgba(183, 29, 63, 0.22);
+}
+[data-theme="dark"] .ant-btn-dangerous:hover {
+  box-shadow: 0 10px 28px rgba(252, 83, 109, 0.28);
 }
 
-/* Table: row hover and selected states */
+/* ---------- Table ---------- */
 [data-theme="light"] .ant-table-tbody > tr > td {
   transition: background-color 160ms ease, box-shadow 160ms ease;
 }
 [data-theme="light"] .ant-table-tbody > tr:hover > td {
-  background-color: #f9fafb;
-  box-shadow: inset 0 -1px 0 #eef2f7;
+  background-color: var(--mf-row-hover);
+  box-shadow: inset 0 -1px 0 var(--mf-border);
 }
 [data-theme="light"] .ant-table-row-selected > td {
-  background-color: #eff6ff;
+  background-color: var(--mf-row-selected);
+}
+
+[data-theme="dark"] .ant-table-tbody > tr > td {
+  transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+[data-theme="dark"] .ant-table-tbody > tr:hover > td {
+  background-color: var(--mf-row-hover);
+  box-shadow: inset 0 -1px 0 var(--mf-border);
+}
+[data-theme="dark"] .ant-table-row-selected > td {
+  background-color: var(--mf-row-selected);
 }
 
 /* Row refresh animation */
 @keyframes rowHighlight {
-  0% { background-color: #eff6ff; }
+  0% { background-color: var(--mf-primary-soft); }
   100% { background-color: transparent; }
 }
-[data-theme="light"] .row-refresh td {
+.row-refresh td {
   animation: rowHighlight 840ms ease-in-out;
 }
 
-/* Sidebar menu: animated active and hover */
-[data-theme="light"] .ant-menu-item {
+/* ---------- Sidebar menu ---------- */
+.ant-menu-item {
   transition: background-color 140ms ease, color 140ms ease;
   border-radius: 8px;
 }
 [data-theme="light"] .ant-menu-item:hover {
-  background-color: rgba(37,99,235,0.06);
+  background-color: var(--mf-primary-soft);
 }
 [data-theme="light"] .ant-menu-item-selected {
-  background-color: rgba(37,99,235,0.08) !important;
-  color: var(--mf-text) !important;
+  background-color: var(--mf-primary-soft-hover) !important;
+  color: var(--mf-primary) !important;
   position: relative;
 }
 [data-theme="light"] .ant-menu-item-selected::before {
@@ -82,7 +132,26 @@ html[data-theme="light"], body[data-theme="light"] {
   border-radius: 2px;
 }
 
-/* Page transitions */
+[data-theme="dark"] .ant-menu-item:hover {
+  background-color: var(--mf-primary-soft);
+}
+[data-theme="dark"] .ant-menu-item-selected {
+  background-color: var(--mf-primary-soft-hover) !important;
+  color: #ffffff !important;
+  position: relative;
+}
+[data-theme="dark"] .ant-menu-item-selected::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  background: var(--mf-primary);
+  border-radius: 2px;
+}
+
+/* ---------- Page transitions ---------- */
 .page-transition {
   animation: fadeSlideIn 240ms ease both;
 }
@@ -91,40 +160,7 @@ html[data-theme="light"], body[data-theme="light"] {
   to   { opacity: 1; transform: translateY(0); }
 }
 
-[data-theme="dark"] .ant-card {
-  background: linear-gradient(180deg, #0b0b0d 0%, #0f1116 100%);
-  border: 1px solid #262626;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.35), 0 10px 32px rgba(0,0,0,0.45);
-  transition: transform 160ms ease, box-shadow 160ms ease;
-  border-radius: 12px;
-}
-[data-theme="dark"] .ant-card:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.55);
-}
-
-.ant-btn {
-  transition: transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
-}
-[data-theme="dark"] .ant-btn:hover {
-  transform: translateY(-0.5px) scale(1.015);
-  box-shadow: 0 10px 28px rgba(59,130,246,0.18);
-}
-[data-theme="dark"] .ant-btn-dangerous:hover {
-  box-shadow: 0 10px 28px rgba(244,63,94,0.24);
-}
-
-[data-theme="dark"] .ant-table-tbody > tr > td {
-  transition: background-color 160ms ease, box-shadow 160ms ease;
-}
-[data-theme="dark"] .ant-table-tbody > tr:hover > td {
-  background: linear-gradient(180deg, #0e1117 0%, #101318 100%);
-  box-shadow: inset 0 -1px 0 #1f2937;
-}
-[data-theme="dark"] .ant-table-row-selected > td {
-  background-color: #0b1220;
-}
-
+/* ---------- Modal ---------- */
 @keyframes modalScaleIn {
   from { opacity: 0; transform: translateY(8px) scale(0.98); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
@@ -135,10 +171,10 @@ html[data-theme="light"], body[data-theme="light"] {
 }
 .mf-modal .ant-modal-mask {
   backdrop-filter: blur(6px);
-  background: rgba(0,0,0,0.48);
+  background: rgba(27, 28, 27, 0.48);
 }
 .modal-danger .ant-btn-primary {
-  box-shadow: 0 0 0 2px rgba(244,63,94,0.5) inset, 0 8px 24px rgba(244,63,94,0.24);
+  box-shadow: 0 0 0 2px rgba(252, 83, 109, 0.45) inset, 0 8px 24px rgba(252, 83, 109, 0.24);
 }
 @keyframes shake {
   10%, 90% { transform: translateX(-1px); }
@@ -152,36 +188,18 @@ html[data-theme="light"], body[data-theme="light"] {
 
 [data-theme="dark"] .ant-modal .ant-modal-title,
 [data-theme="dark"] .ant-modal-confirm-title {
-  color: #f5f5f5;
+  color: var(--mf-text);
 }
 [data-theme="dark"] .ant-modal .ant-modal-body,
 [data-theme="dark"] .ant-modal-confirm-content {
-  color: #d1d5db;
+  color: var(--mf-text-secondary);
 }
-
 [data-theme="dark"] .ant-modal .ant-btn-default,
 [data-theme="dark"] .ant-modal-confirm .ant-btn-default {
-  color: #e5e7eb !important;
+  color: var(--mf-text) !important;
 }
 
-[data-theme="dark"] .ant-menu-item {
-  transition: background-color 140ms ease, color 140ms ease;
-  border-radius: 8px;
-}
-[data-theme="dark"] .ant-menu-item:hover {
-  background-color: rgba(59,130,246,0.08);
-}
-[data-theme="dark"] .ant-menu-item-selected {
-  background-color: rgba(59,130,246,0.12) !important;
-  position: relative;
-}
-[data-theme="dark"] .ant-menu-item-selected::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 8px;
-  bottom: 8px;
-  width: 3px;
-  background: #2563eb;
-  border-radius: 2px;
+/* ---------- Brand gradient utility (matches production frontend) ---------- */
+.bg-brand-gradient {
+  background-image: linear-gradient(135deg, #b71d3f, #fc536d);
 }

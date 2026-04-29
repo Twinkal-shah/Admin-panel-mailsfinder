@@ -41,32 +41,38 @@ export default function App() {
   }, [restoreFromToken, logout])
 
   const tokens = useMemo(() => {
+    const fontFamily =
+      '"Space Grotesk", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"'
     return isDark
       ? {
-          colorPrimary: '#737373',
-          colorText: '#f5f5f5',
-          colorBgBase: '#050505',
-          colorBgContainer: '#111111',
-          colorBorder: '#262626',
-          colorBorderSecondary: '#404040',
-          borderRadius: 10,
-          fontFamily:
-            '"Bricolage Grotesque", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"'
+          colorPrimary: '#b71d3f',
+          colorInfo: '#fc536d',
+          colorText: '#fbf9f8',
+          colorTextSecondary: '#e2bebf',
+          colorBgBase: '#1b1c1b',
+          colorBgLayout: '#1b1c1b',
+          colorBgContainer: '#2a2a2a',
+          colorBgElevated: '#2a2a2a',
+          colorBorder: 'rgba(183, 29, 63, 0.25)',
+          colorBorderSecondary: 'rgba(183, 29, 63, 0.18)',
+          borderRadius: 12,
+          fontFamily
         }
       : {
-          colorPrimary: '#2563eb',
-          colorText: '#111827',
-          colorTextSecondary: '#6b7280',
-          colorBgBase: '#f7f7f9',
-          colorBgLayout: '#f7f7f9',
-          colorBgContainer: '#ffffff',
-          colorBorder: '#e5e7eb',
-          colorBorderSecondary: '#e5e7eb',
+          colorPrimary: '#b71d3f',
+          colorInfo: '#fc536d',
+          colorText: '#1b1c1b',
+          colorTextSecondary: '#5a4042',
+          colorBgBase: '#fbf9f8',
+          colorBgLayout: '#fbf9f8',
+          colorBgContainer: '#fbf9f8',
+          colorBgElevated: '#ffffff',
+          colorBorder: 'rgba(226, 190, 191, 0.5)',
+          colorBorderSecondary: 'rgba(226, 190, 191, 0.3)',
           borderRadius: 12,
-          boxShadow: '0 1px 2px rgba(12,16,23,0.06)',
-          boxShadowSecondary: '0 6px 20px rgba(12,16,23,0.08)',
-          fontFamily:
-            '"Bricolage Grotesque", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"'
+          boxShadow: '0 1px 2px rgba(91, 28, 47, 0.06)',
+          boxShadowSecondary: '0 6px 20px rgba(91, 28, 47, 0.08)',
+          fontFamily
         }
   }, [isDark])
 

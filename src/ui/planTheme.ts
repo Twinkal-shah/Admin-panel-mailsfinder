@@ -2,11 +2,14 @@ export type PlanId = 'free' | 'monthly' | 'lifetime' | 'payg'
 
 export const PLAN_ORDER: PlanId[] = ['free', 'monthly', 'lifetime', 'payg']
 
+// Brand-aligned plan colors. Free stays neutral (it's "no plan"); paid tiers
+// pull from the production frontend's chart palette so badges and pie slices
+// feel like one product.
 export const PLAN_COLORS: Record<PlanId, string> = {
-  free: '#94A3B8',
-  monthly: '#3B82F6',
-  lifetime: '#F59E0B',
-  payg: '#8B5CF6'
+  free: '#5a4042',
+  monthly: '#b71d3f',
+  lifetime: '#fc536d',
+  payg: '#ff8fa3'
 }
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
