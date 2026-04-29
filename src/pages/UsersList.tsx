@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useDataStore } from '../store/data'
-import { Button, Card, Form, Input, Modal, Select, Table, Tag, Typography, DatePicker, Grid, Alert, Skeleton, message, theme } from 'antd'
-import type { ColumnsType } from 'antd/es/table'
+import { Button, Card, Form, Input, Modal, Select, Space, Table, Tag, Typography, DatePicker, Grid, Alert, Skeleton, message } from 'antd'
+import type { ColumnsType, TablePaginationConfig } from 'antd/es/table'
 import { PLAN_DISPLAY_NAME, User } from '../types/types'
 import { PLAN_COLORS, PLAN_ORDER, badgeStyles, rowAccentStyle } from '../ui/planTheme'
 import { mapUser } from '../utils/mappers'
@@ -10,23 +10,34 @@ import { useAuthStore } from '../store/auth'
 import { hasScope } from '../store/rbac'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
+import { api } from '../utils/api'
 
 export default function UsersList() {
-  const { users, addCredits, updateUser, setAll } = useDataStore()
+  const { users, setAll } = useDataStore()
   const { admin, token, logout } = useAuthStore()
   const navigate = useNavigate()
   const screens = Grid.useBreakpoint()
   const isMobile = !screens.md
   const isDarkMode = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'dark'
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([])
+
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [planFilter, setPlanFilter] = useState<User['plan'] | 'all'>('all')
+
+  // Local-page client-side filters (narrow the current server page only)
   const [filters, setFilters] = useState<{
-    plan?: User['plan'] | 'all'
     email_verified?: boolean | 'all'
     subscription_status?: 'active' | 'cancelled' | 'past_due' | 'none' | 'all'
     country?: string
     createdFrom?: string
     createdTo?: string
-  }>(() => ({ plan: 'all', email_verified: 'all', subscription_status: 'all' }))
+  }>(() => ({ email_verified: 'all', subscription_status: 'all' }))
+
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(50)
+  const [total, setTotal] = useState(0)
+
   const [addCreditsOpen, setAddCreditsOpen] = useState(false)
   const [addCreditsAmount, setAddCreditsAmount] = useState<number>(100)
   const [addCreditsReason, setAddCreditsReason] = useState<string>('')
@@ -41,88 +52,69 @@ export default function UsersList() {
   const [editSaving, setEditSaving] = useState(false)
   const [recentlyUpdatedIds, setRecentlyUpdatedIds] = useState<Set<string>>(new Set())
 
-  useEffect(() => {
-    let cancelled = false
-    async function load() {
-      setLoading(true)
-      setBackendError(null)
-      try {
-        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8000' : 'https://server.mailsfinder.com')
-        const bearer = token || localStorage.getItem('ADMIN_TOKEN') || ''
-        if (!bearer) {
-          setLoading(false)
-          logout()
-          navigate('/login', { replace: true })
-          return
-        }
-        const res = await axios.get(`${API_BASE_URL}/api/admin/userManagement/getAllUsers`, {
-          headers: {
-            Authorization: `Bearer ${bearer}`
-          },
-          params: { ts: Date.now() }
-        })
-        if (cancelled) return
-        const source = Array.isArray(res.data?.data) ? res.data.data : []
-        setAll({ users: source.map(mapUser) })
-      } catch (e: any) {
-        const status = e?.response?.status
-        if (status === 401) {
-          setLoading(false)
-          logout()
-          navigate('/login', { replace: true })
-          return
-        }
-        const msg = e?.response?.data?.message || e?.message || 'Failed to load users'
-        setAll({ users: [] })
-        setBackendError(msg)
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-    load()
-    return () => {
-      cancelled = true
-    }
-  }, [setAll])
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  async function reloadUsersFresh() {
+  // Debounce the search input.
+  useEffect(() => {
+    if (searchTimer.current) clearTimeout(searchTimer.current)
+    searchTimer.current = setTimeout(() => {
+      setDebouncedSearch(search.trim())
+    }, 300)
+    return () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current)
+    }
+  }, [search])
+
+  // Reset to page 1 when the server-side filters change.
+  useEffect(() => {
+    setPage(1)
+  }, [debouncedSearch, planFilter])
+
+  const fetchUsers = useCallback(async () => {
     setLoading(true)
     setBackendError(null)
     try {
-      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8000' : 'https://server.mailsfinder.com')
-      const bearer = token || localStorage.getItem('ADMIN_TOKEN') || ''
-      if (!bearer) {
-        setLoading(false)
-        logout()
-        navigate('/login', { replace: true })
-        return
-      }
-      const res = await axios.get(`${API_BASE_URL}/api/admin/userManagement/getAllUsers`, {
-        headers: {
-          Authorization: `Bearer ${bearer}`
-        },
-        params: { ts: Date.now() }
-      })
-      const source = Array.isArray(res.data?.data) ? res.data.data : []
+      const params: Record<string, string | number> = { page, pageSize }
+      if (debouncedSearch) params.search = debouncedSearch
+      if (planFilter && planFilter !== 'all') params.plan = planFilter
+      const res = await api.get('/api/admin/userManagement/getAllUsers', { params })
+      const body: any = res.data
+      const source = Array.isArray(body?.data) ? body.data : []
       setAll({ users: source.map(mapUser) })
+      // Paginated mode returns total; legacy mode returns just data.
+      if (typeof body?.total === 'number') {
+        setTotal(body.total)
+      } else {
+        setTotal(source.length)
+      }
     } catch (e: any) {
-      const status = e?.response?.status
+      const status = axios.isAxiosError(e) ? e.response?.status : undefined
       if (status === 401) {
-        setLoading(false)
+        // Interceptor already attempted refresh and failed → log out.
         logout()
         navigate('/login', { replace: true })
         return
       }
       const msg = e?.response?.data?.message || e?.message || 'Failed to load users'
+      setAll({ users: [] })
+      setTotal(0)
       setBackendError(msg)
     } finally {
       setLoading(false)
     }
+  }, [page, pageSize, debouncedSearch, planFilter, setAll, logout, navigate])
+
+  useEffect(() => {
+    fetchUsers()
+  }, [fetchUsers])
+
+  async function reloadUsersFresh() {
+    await fetchUsers()
   }
 
+  // Client-side filters narrow the current server page only.
   const filtered = useMemo(() => {
     return users.filter(u => {
-      if (filters.plan && filters.plan !== 'all' && u.plan !== filters.plan) return false
       if (filters.email_verified !== undefined && filters.email_verified !== 'all' && u.email_verified !== filters.email_verified) return false
       if (filters.subscription_status && filters.subscription_status !== 'all' && u.subscription_status !== filters.subscription_status) return false
       if (filters.country && u.country !== filters.country) return false
@@ -455,6 +447,15 @@ export default function UsersList() {
       {backendError && <Alert type="error" message={backendError} showIcon />}
 
       <Card>
+        <Space wrap style={{ marginBottom: 12 }}>
+          <Input.Search
+            placeholder="Search by email or name"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            allowClear
+            style={{ width: 320 }}
+          />
+        </Space>
         <Form layout={isMobile ? 'vertical' : 'inline'} style={{ display: 'flex', gap: 12, flexWrap: 'wrap', width: '100%' }}>
           <Form.Item label="Plan">
             <Select
@@ -471,8 +472,8 @@ export default function UsersList() {
                   )
                 }))
               ]}
-              value={filters.plan}
-              onChange={(v) => setFilters(f => ({ ...f, plan: v }))}
+              value={planFilter}
+              onChange={(v) => setPlanFilter(v)}
             />
           </Form.Item>
           <Form.Item label="Email verified">
@@ -535,7 +536,24 @@ export default function UsersList() {
             rowKey="id"
             dataSource={filtered}
             columns={columns}
-            pagination={{ pageSize: 50, showSizeChanger: true, pageSizeOptions: [25, 50, 100] }}
+            pagination={{
+              current: page,
+              pageSize,
+              total,
+              showSizeChanger: true,
+              pageSizeOptions: ['25', '50', '100', '200'],
+              showTotal: (t) => `Total ${t}`
+            } as TablePaginationConfig}
+            onChange={(p) => {
+              const nextPage = p.current ?? 1
+              const nextSize = p.pageSize ?? pageSize
+              if (nextSize !== pageSize) {
+                setPageSize(nextSize)
+                setPage(1)
+              } else {
+                setPage(nextPage)
+              }
+            }}
             rowSelection={rowSelection}
             scroll={{ x: 'max-content' }}
             size="small"

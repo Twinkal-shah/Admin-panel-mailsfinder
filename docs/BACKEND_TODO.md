@@ -4,18 +4,6 @@ This file tracks endpoints / fields the admin panel needs but that don't exist
 yet on `server.mailsfinder.com`. Each item is annotated with the calling
 codepath so a backend engineer can pick it up.
 
-## Server-side pagination + filtering for getAllUsers
-
-- **Need:** add `page`, `pageSize`, `search`, and `plan` query params to
-  `GET /api/admin/userManagement/getAllUsers`. The handler should
-  return `{ data, total, page, pageSize }`.
-- **Why:** the admin UsersList currently fetches the entire collection
-  in one request and paginates client-side at 50 / page. This is fine
-  while we have hundreds of users but breaks at thousands.
-- **Frontend caller:** `src/pages/UsersList.tsx`. Once the backend
-  supports it, switch the Antd Table to controlled pagination and
-  forward the page/search params to the request.
-
 ## API key encryption belongs server-side
 
 - The Zustand store has helper code that encrypts API keys with
