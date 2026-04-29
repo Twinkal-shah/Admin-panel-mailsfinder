@@ -1,254 +1,503 @@
-import { useEffect, useState } from 'react'
-import { useDataStore } from '../store/data'
-import { Card, Table, Tag, Typography, Button, Modal, Form, Input, Select, Skeleton, Result, Tooltip, message } from 'antd'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  Alert,
+  Button,
+  Card,
+  Empty,
+  Form,
+  Input,
+  Modal,
+  Popconfirm,
+  Result,
+  Select,
+  Space,
+  Table,
+  Tag,
+  Typography,
+  message
+} from 'antd'
+import type { ColumnsType, TablePaginationConfig } from 'antd/es/table'
+import { CopyOutlined, ReloadOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
-import { ApiKey } from '../types/types'
+import axios from 'axios'
+import { api } from '../utils/api'
 import { useAuthStore } from '../store/auth'
 import { hasScope } from '../store/rbac'
-import { mapApiKey } from '../utils/mappers'
+
+interface AdminApiKeyRow {
+  _id: string
+  userId: string
+  userEmail?: string
+  userFullName?: string
+  apiKey?: string
+  keyPrefix: string
+  isActive: boolean
+  lastUsedAt?: string
+  usageCount?: number
+  createdAt: string
+  updatedAt?: string
+}
+
+interface ListResponse {
+  success: boolean
+  data: AdminApiKeyRow[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+interface CreateResponse {
+  success: boolean
+  data: {
+    _id: string
+    userId: string
+    apiKey: string
+    keyPrefix: string
+    isActive: boolean
+    createdAt: string
+  }
+}
+
+interface UserOption {
+  value: string
+  label: string
+}
+
+const STATUS_FILTERS = [
+  { value: 'all', label: 'All' },
+  { value: 'active', label: 'Active only' },
+  { value: 'revoked', label: 'Revoked only' }
+] as const
+
+type StatusFilter = (typeof STATUS_FILTERS)[number]['value']
+
+function copyToClipboard(text: string) {
+  if (!text) return
+  navigator.clipboard
+    ?.writeText(text)
+    .then(() => message.success('Copied'))
+    .catch(() => message.error('Copy failed'))
+}
+
+function MonoCell({ value, fullOnCopy = true }: { value?: string; fullOnCopy?: boolean }) {
+  if (!value) return <Typography.Text type="secondary">-</Typography.Text>
+  return (
+    <Typography.Text
+      code
+      onClick={() => copyToClipboard(fullOnCopy ? value : value)}
+      style={{ cursor: 'pointer', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}
+      title={`${value} (click to copy)`}
+    >
+      {value}
+    </Typography.Text>
+  )
+}
 
 export default function ApiKeys() {
-  const { apiKeys, users, revokeApiKey, createApiKey, updateApiKeyRateLimit, setAll } = useDataStore()
-  const { admin, token } = useAuthStore()
-  const ADMIN_KEY_MGMT_ENABLED = false
-  const [createOpen, setCreateOpen] = useState(false)
-  const [rateLimit, setRateLimit] = useState<number>(60)
-  const [userId, setUserId] = useState<string | undefined>(undefined)
-  const [fullKey, setFullKey] = useState<string | null>(null)
-  const [revokeModal, setRevokeModal] = useState<{ open: boolean; keyId?: string; reason: string }>({ open: false, reason: '' })
-  const [rateModal, setRateModal] = useState<{ open: boolean; keyId?: string; rate: number }>({ open: false, rate: 60 })
+  const { admin } = useAuthStore()
+  const canManage = hasScope(admin.role, 'apikeys.manage')
+
+  const [rows, setRows] = useState<AdminApiKeyRow[]>([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(50)
   const [loading, setLoading] = useState(false)
-  const [revokeLoading, setRevokeLoading] = useState(false)
-  const [rateLoading, setRateLoading] = useState(false)
-  const [backendError, setBackendError] = useState<string | null>(null)
-  const [recentlyUpdatedIds, setRecentlyUpdatedIds] = useState<Set<string>>(new Set())
-  const isDarkMode = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'dark'
+  const [error, setError] = useState<string | null>(null)
+
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+
+  const [createOpen, setCreateOpen] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [createUserId, setCreateUserId] = useState<string | undefined>(undefined)
+  const [createName, setCreateName] = useState<string>('')
+  const [userOptions, setUserOptions] = useState<UserOption[]>([])
+  const [userSearchLoading, setUserSearchLoading] = useState(false)
+
+  const [revealKey, setRevealKey] = useState<string | null>(null)
+  const [revokingId, setRevokingId] = useState<string | null>(null)
+
+  const userSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Debounce search input
+  useEffect(() => {
+    if (searchTimer.current) clearTimeout(searchTimer.current)
+    searchTimer.current = setTimeout(() => {
+      setDebouncedSearch(search.trim())
+      setPage(1)
+    }, 300)
+    return () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current)
+    }
+  }, [search])
+
+  const fetchKeys = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    const params: Record<string, string | number> = { page, pageSize }
+    if (debouncedSearch) params.search = debouncedSearch
+    if (statusFilter === 'active') params.isActive = 'true'
+    if (statusFilter === 'revoked') params.isActive = 'false'
+    try {
+      const res = await api.get<ListResponse>('/api/admin/apikeys', { params })
+      const body = res.data
+      setRows(Array.isArray(body?.data) ? body.data : [])
+      setTotal(Number.isFinite(body?.total) ? body.total : 0)
+    } catch (e) {
+      const status = axios.isAxiosError(e) ? e.response?.status : undefined
+      if (status === 401) {
+        setRows([])
+        setTotal(0)
+        return
+      }
+      const msg =
+        (axios.isAxiosError(e) && (e.response?.data as any)?.message) ||
+        (e instanceof Error ? e.message : 'Failed to load API keys')
+      setError(msg)
+    } finally {
+      setLoading(false)
+    }
+  }, [debouncedSearch, statusFilter, page, pageSize])
 
   useEffect(() => {
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8000' : 'https://server.mailsfinder.com')
-    let cancelled = false
-    async function loadKeys() {
-      if (apiKeys.length > 0) return
-      try {
-        setLoading(true)
-        setBackendError(null)
-        const bearer = token || localStorage.getItem('ADMIN_TOKEN') || ''
-        const res = await fetch(`${API_BASE_URL}/api/admin/dashboard/bootstrap`, {
-          headers: { Authorization: bearer ? `Bearer ${bearer}` : '' },
-        })
-        if (!res.ok) {
-          setBackendError('Failed to load. Backend may be unreachable.')
-          return
-        }
-        const body = await res.json()
-        if (cancelled) return
-        const source = Array.isArray(body.apiKeys)
-          ? body.apiKeys
-          : Array.isArray(body.apikeys)
-          ? body.apikeys
-          : []
-        const mapped = source.map(mapApiKey)
-        if (mapped.length > 0) setAll({ apiKeys: mapped })
-      } catch {
-        setBackendError('Failed to load. Backend may be unreachable.')
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-    loadKeys()
-    return () => {
-      cancelled = true
-    }
-  }, [apiKeys.length, setAll, token])
+    fetchKeys()
+  }, [fetchKeys])
 
-  const columns = [
-    { title: 'Prefix', dataIndex: 'keyPrefix' },
-    { title: 'User', dataIndex: 'userId', render: (id: string) => users.find(u => u.id === id)?.email || '-' },
-    { title: 'rateLimitPerMinute', dataIndex: 'rateLimitPerMinute' },
-    { title: 'lastUsedAt', dataIndex: 'lastUsedAt', render: (d: string) => d ? dayjs(d).format('YYYY-MM-DD') : '-' },
-    { title: 'usageCount', dataIndex: 'usageCount' },
-    {
-      title: 'status',
-      dataIndex: 'status',
-      render: (s: string) => {
-        const stylesLight: Record<string, { bg: string; text: string; border: string }> = {
-          active: { bg: '#ecfdf5', text: '#065f46', border: '#d1fae5' },
-          revoked: { bg: '#fef2f2', text: '#7f1d1d', border: '#fee2e2' }
-        }
-        const stylesDark = { bg: '#0b0b0d', text: '#d1d5db', border: '#374151' }
-        const sConf = isDarkMode ? stylesDark : stylesLight[s] || stylesLight.active
-        return (
-          <Tag style={{ borderRadius: 999, background: sConf.bg, color: sConf.text, borderColor: sConf.border }}>
-            {s}
-          </Tag>
+  // Reset page on filter change
+  useEffect(() => {
+    setPage(1)
+  }, [statusFilter])
+
+  const onUserSearch = (value: string) => {
+    if (userSearchTimer.current) clearTimeout(userSearchTimer.current)
+    if (!value || value.length < 1) {
+      setUserOptions([])
+      return
+    }
+    userSearchTimer.current = setTimeout(async () => {
+      setUserSearchLoading(true)
+      try {
+        const res = await api.get('/api/admin/userManagement/getAllUsers', {
+          params: { page: 1, pageSize: 10, search: value }
+        })
+        const list = Array.isArray((res.data as any)?.data) ? (res.data as any).data : []
+        setUserOptions(
+          list.map((u: any) => ({
+            value: String(u._id ?? u.id),
+            label: `${u.full_name ?? u.name ?? '(no name)'} <${u.email ?? '?'}>`
+          }))
         )
+      } catch {
+        setUserOptions([])
+      } finally {
+        setUserSearchLoading(false)
       }
-    },
-    {
-      title: 'Actions',
-      render: (_: any, record: ApiKey) => (
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Tooltip title={ADMIN_KEY_MGMT_ENABLED ? '' : 'Admin-side key management is not yet supported by the backend'}>
-            <Button
-              disabled={!ADMIN_KEY_MGMT_ENABLED || !hasScope(admin.role, 'apikeys.manage')}
-              onClick={() => setRateModal({ open: true, keyId: record.id, rate: record.rateLimitPerMinute })}
-            >
-              Set rate limit
-            </Button>
-          </Tooltip>
-          <Tooltip title={ADMIN_KEY_MGMT_ENABLED ? '' : 'Admin-side key management is not yet supported by the backend'}>
+    }, 300)
+  }
+
+  const onCreateSubmit = async () => {
+    if (!createUserId) {
+      message.warning('Pick a user')
+      return
+    }
+    setCreating(true)
+    try {
+      const body: { userId: string; name?: string } = { userId: createUserId }
+      const trimmedName = createName.trim()
+      if (trimmedName) body.name = trimmedName.slice(0, 64)
+      const res = await api.post<CreateResponse>('/api/admin/apikeys', body)
+      const apiKey = res.data?.data?.apiKey
+      if (!apiKey) {
+        message.error('Backend did not return the created key')
+        return
+      }
+      setCreateOpen(false)
+      setCreateUserId(undefined)
+      setCreateName('')
+      setUserOptions([])
+      setRevealKey(apiKey)
+      await fetchKeys()
+    } catch (e) {
+      const msg =
+        (axios.isAxiosError(e) && (e.response?.data as any)?.message) ||
+        (e instanceof Error ? e.message : 'Failed to create API key')
+      message.error(msg)
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  const onRevoke = async (row: AdminApiKeyRow) => {
+    setRevokingId(row._id)
+    try {
+      await api.delete(`/api/admin/apikeys/${row._id}`)
+      message.success('API key revoked')
+      await fetchKeys()
+    } catch (e) {
+      const msg =
+        (axios.isAxiosError(e) && (e.response?.data as any)?.message) ||
+        (e instanceof Error ? e.message : 'Revoke failed')
+      message.error(msg)
+    } finally {
+      setRevokingId(null)
+    }
+  }
+
+  const columns: ColumnsType<AdminApiKeyRow> = useMemo(
+    () => [
+      {
+        title: 'Key Prefix',
+        dataIndex: 'keyPrefix',
+        key: 'keyPrefix',
+        width: 180,
+        render: (v: string) => <MonoCell value={v} />
+      },
+      {
+        title: 'Owner',
+        key: 'owner',
+        render: (_, row) => (
+          <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.3 }}>
+            <Typography.Text>{row.userEmail || '-'}</Typography.Text>
+            {row.userFullName && (
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                {row.userFullName}
+              </Typography.Text>
+            )}
+          </div>
+        )
+      },
+      {
+        title: 'Status',
+        dataIndex: 'isActive',
+        key: 'isActive',
+        width: 120,
+        render: (active: boolean) =>
+          active ? <Tag color="green">Active</Tag> : <Tag color="red">Revoked</Tag>
+      },
+      {
+        title: 'Created',
+        dataIndex: 'createdAt',
+        key: 'createdAt',
+        width: 140,
+        render: (d: string) => (d ? dayjs(d).format('MMM D, YYYY') : '-')
+      },
+      {
+        title: 'Last Used',
+        dataIndex: 'lastUsedAt',
+        key: 'lastUsedAt',
+        width: 160,
+        render: (d?: string) => (d ? dayjs(d).format('MMM D, YYYY h:mm A') : '-')
+      },
+      {
+        title: 'Usage',
+        dataIndex: 'usageCount',
+        key: 'usageCount',
+        width: 90,
+        render: (n?: number) => (typeof n === 'number' ? n : 0)
+      },
+      {
+        title: 'Actions',
+        key: 'actions',
+        width: 140,
+        render: (_, row) => (
+          <Popconfirm
+            title="Revoke this API key?"
+            description="This cannot be undone."
+            okText="Revoke"
+            okButtonProps={{ danger: true }}
+            onConfirm={() => onRevoke(row)}
+            disabled={!canManage || !row.isActive}
+          >
             <Button
               danger
-              disabled={!ADMIN_KEY_MGMT_ENABLED || !hasScope(admin.role, 'apikeys.manage')}
-              onClick={() => setRevokeModal({ open: true, keyId: record.id, reason: '' })}
+              size="small"
+              disabled={!canManage || !row.isActive}
+              loading={revokingId === row._id}
             >
               Revoke
             </Button>
-          </Tooltip>
-        </div>
-      )
-    }
-  ]
+          </Popconfirm>
+        )
+      }
+    ],
+    [canManage, revokingId]
+  )
 
-  function handleCreate() {
-    const created = createApiKey({ userId, rateLimitPerMinute: rateLimit }, admin.id)
-    setFullKey(created.fullKey)
-    setCreateOpen(false)
-    setRecentlyUpdatedIds(prev => new Set([...prev, created.key.id]))
-    setTimeout(() => {
-      setRecentlyUpdatedIds(prev => {
-        const next = new Set([...prev]); next.delete(created.key.id); return next
-      })
-    }, 1200)
-    message.success('API Key created')
+  const pagination: TablePaginationConfig = {
+    current: page,
+    pageSize,
+    total,
+    showSizeChanger: true,
+    pageSizeOptions: ['25', '50', '100', '200'],
+    showTotal: (t) => `Total ${t}`
   }
-  function confirmRevoke() {
-    if (!revokeModal.keyId) return
-    setRevokeLoading(true)
-    setTimeout(() => {
-      revokeApiKey(revokeModal.keyId!, admin.id, revokeModal.reason || 'Revoked')
-      setRevokeLoading(false)
-      setRevokeModal({ open: false, reason: '' })
-      setRecentlyUpdatedIds(prev => new Set([...prev, revokeModal.keyId!]))
-      setTimeout(() => {
-        setRecentlyUpdatedIds(prev => { const next = new Set([...prev]); next.delete(revokeModal.keyId!); return next })
-      }, 1200)
-      message.success('API Key revoked')
-    }, 300)
-  }
-  function confirmSetRate() {
-    if (!rateModal.keyId) return
-    setRateLoading(true)
-    setTimeout(() => {
-      updateApiKeyRateLimit(rateModal.keyId!, rateModal.rate)
-      setRateLoading(false)
-      setRateModal({ open: false, rate: 60 })
-      setRecentlyUpdatedIds(prev => new Set([...prev, rateModal.keyId!]))
-      setTimeout(() => {
-        setRecentlyUpdatedIds(prev => { const next = new Set([...prev]); next.delete(rateModal.keyId!); return next })
-      }, 1200)
-      message.success('Rate limit updated')
-    }, 300)
+
+  if (error && rows.length === 0) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <Typography.Title level={3} style={{ margin: 0 }}>API Keys</Typography.Title>
+        <Card>
+          <Result
+            status="error"
+            title="Failed to load API keys"
+            subTitle={error}
+            extra={<Button type="primary" onClick={fetchKeys}>Retry</Button>}
+          />
+        </Card>
+      </div>
+    )
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <Typography.Title level={3} style={{ margin: 0 }}>API Keys</Typography.Title>
-        <Tooltip title={ADMIN_KEY_MGMT_ENABLED ? '' : 'Admin-side key creation is not yet supported by the backend'}>
+        <Space>
+          <Button icon={<ReloadOutlined />} onClick={fetchKeys} loading={loading}>
+            Refresh
+          </Button>
           <Button
             type="primary"
-            disabled={!ADMIN_KEY_MGMT_ENABLED || !hasScope(admin.role, 'apikeys.manage')}
+            disabled={!canManage}
             onClick={() => setCreateOpen(true)}
           >
             Create
           </Button>
-        </Tooltip>
+        </Space>
       </div>
-      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-        Read-only view: admin-side create/revoke is gated until backend
-        adds GET /api/admin/apikeys and DELETE /api/admin/apikeys/:id
-        (see docs/BACKEND_TODO.md).
-      </Typography.Text>
+
       <Card>
-        {loading && apiKeys.length === 0 ? (
-          <Skeleton active paragraph={{ rows: 4 }} />
-        ) : backendError && apiKeys.length === 0 ? (
-          <Result status="error" title="Failed to load" subTitle="Backend may be unreachable." />
-        ) : (
-          <Table<ApiKey>
-            rowKey="id"
-            dataSource={apiKeys}
-            columns={columns}
-            pagination={{ pageSize: 10 }}
-            scroll={{ x: 'max-content' }}
-            size="small"
-            rowClassName={(record) => recentlyUpdatedIds.has(record.id) ? 'row-refresh' : ''}
+        <Space wrap>
+          <Input.Search
+            placeholder="Search by email, name, or key prefix"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            allowClear
+            style={{ width: 320 }}
           />
-        )}
+          <Select
+            value={statusFilter}
+            onChange={(v) => setStatusFilter(v)}
+            options={STATUS_FILTERS as unknown as { value: StatusFilter; label: string }[]}
+            style={{ width: 160 }}
+          />
+        </Space>
       </Card>
 
-      {fullKey && (
-        <Card title="New Key (shown once)">
-          <Typography.Text>{fullKey}</Typography.Text>
-        </Card>
-      )}
+      <Card>
+        <Table<AdminApiKeyRow>
+          rowKey="_id"
+          dataSource={rows}
+          columns={columns}
+          loading={loading}
+          pagination={pagination}
+          scroll={{ x: 'max-content' }}
+          size="small"
+          locale={{ emptyText: <Empty description="No API keys" /> }}
+          onChange={(p) => {
+            const nextPage = p.current ?? 1
+            const nextSize = p.pageSize ?? pageSize
+            if (nextSize !== pageSize) {
+              setPageSize(nextSize)
+              setPage(1)
+            } else {
+              setPage(nextPage)
+            }
+          }}
+        />
+      </Card>
 
       <Modal
         title="Create API Key"
         open={createOpen}
-        onOk={handleCreate}
-        onCancel={() => setCreateOpen(false)}
+        onCancel={() => {
+          if (creating) return
+          setCreateOpen(false)
+          setCreateUserId(undefined)
+          setCreateName('')
+          setUserOptions([])
+        }}
+        onOk={onCreateSubmit}
+        confirmLoading={creating}
+        okText="Create"
         className="mf-modal"
       >
         <Form layout="vertical">
-          <Form.Item label="User">
+          <Form.Item label="User" required>
             <Select
+              showSearch
+              placeholder="Type a name or email..."
+              value={createUserId}
+              onChange={(v) => setCreateUserId(v)}
+              onSearch={onUserSearch}
+              filterOption={false}
+              loading={userSearchLoading}
+              options={userOptions}
+              notFoundContent={userSearchLoading ? 'Searching…' : 'No matches'}
               allowClear
-              value={userId}
-              onChange={setUserId}
-              options={users.map(u => ({ value: u.id, label: `${u.full_name} (${u.email})` }))}
             />
           </Form.Item>
-          <Form.Item label="rateLimitPerMinute">
-            <Input type="number" value={rateLimit} onChange={(e) => setRateLimit(Number(e.target.value))} />
-          </Form.Item>
-        </Form>
-        <Typography.Paragraph type="secondary">
-          Only the key prefix is visible after creation. Full key is shown once and stored encrypted at rest.
-        </Typography.Paragraph>
-      </Modal>
-      <Modal
-        title="Revoke API Key"
-        open={revokeModal.open}
-        onOk={confirmRevoke}
-        onCancel={() => setRevokeModal({ open: false, reason: '' })}
-        okButtonProps={{ danger: true }}
-        className="mf-modal"
-        confirmLoading={revokeLoading}
-      >
-        <Typography.Paragraph type="secondary">
-          This is a destructive action. Please confirm revocation.
-        </Typography.Paragraph>
-        <Form layout="vertical">
-          <Form.Item label="Reason">
-            <Input.TextArea rows={3} value={revokeModal.reason} onChange={(e) => setRevokeModal(m => ({ ...m, reason: e.target.value }))} />
+          <Form.Item
+            label="Name (optional)"
+            help="Internal label, max 64 chars"
+          >
+            <Input
+              value={createName}
+              onChange={(e) => setCreateName(e.target.value.slice(0, 64))}
+              placeholder="e.g. Mobile app integration"
+              maxLength={64}
+            />
           </Form.Item>
         </Form>
       </Modal>
+
       <Modal
-        title="Set Rate Limit"
-        open={rateModal.open}
-        onOk={confirmSetRate}
-        onCancel={() => setRateModal({ open: false, rate: 60 })}
+        title="API Key created"
+        open={!!revealKey}
+        onCancel={() => setRevealKey(null)}
+        footer={[
+          <Button key="close" type="primary" onClick={() => setRevealKey(null)}>
+            Done
+          </Button>
+        ]}
         className="mf-modal"
-        confirmLoading={rateLoading}
       >
-        <Form layout="vertical">
-          <Form.Item label="rateLimitPerMinute">
-            <Input type="number" value={rateModal.rate} onChange={(e) => setRateModal(m => ({ ...m, rate: Number(e.target.value) }))} />
-          </Form.Item>
-        </Form>
+        <Alert
+          type="warning"
+          showIcon
+          message="Save this key now"
+          description="For security, it won't be shown again here."
+          style={{ marginBottom: 12 }}
+        />
+        <div
+          style={{
+            background: 'rgba(0,0,0,0.04)',
+            padding: 12,
+            borderRadius: 6,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12
+          }}
+        >
+          <Typography.Text
+            code
+            style={{
+              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+              wordBreak: 'break-all'
+            }}
+          >
+            {revealKey}
+          </Typography.Text>
+          <Button
+            icon={<CopyOutlined />}
+            onClick={() => revealKey && copyToClipboard(revealKey)}
+          >
+            Copy
+          </Button>
+        </div>
       </Modal>
     </div>
   )
