@@ -3,6 +3,16 @@ import { Role } from '../types/types'
 import { scopesForRole } from './rbac'
 import { jwtDecode } from 'jwt-decode'
 
+const VALID_ROLES: readonly Role[] = ['superadmin', 'product_manager', 'support']
+
+function roleFromPayload(payload: any): Role {
+  const raw = payload?.role
+  if (typeof raw === 'string' && (VALID_ROLES as readonly string[]).includes(raw)) {
+    return raw as Role
+  }
+  return 'superadmin'
+}
+
 interface Admin {
   id: string
   name: string
@@ -35,7 +45,7 @@ export const useAuthStore = create<AuthState>((set) => {
       const payload: any = jwtDecode(initialToken)
       const now = Math.floor(Date.now() / 1000)
       if (payload?.exp && payload.exp < now) return null
-      const role: Role = 'superadmin'
+      const role: Role = roleFromPayload(payload)
       return {
         id: String(payload.adminId ?? payload.sub ?? ''),
         name: '',
@@ -103,7 +113,7 @@ export const useAuthStore = create<AuthState>((set) => {
           set({ token: undefined, isAuthenticated: false })
           return
         }
-        const role: Role = 'superadmin'
+        const role: Role = roleFromPayload(payload)
         set({
           admin: {
             id: String(payload.adminId ?? payload.sub ?? ''),
