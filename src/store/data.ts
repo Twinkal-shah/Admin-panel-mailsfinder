@@ -12,7 +12,7 @@ interface DataState {
   apiKeys: ApiKey[]
   contents: ContentItem[]
   audits: AuditRow[]
-  initDemoData: () => void
+  initEmptyState: () => void
 
   setAll: (payload: {
     users?: User[]
@@ -39,70 +39,8 @@ export const useDataStore = create<DataState>((set, get) => ({
   apiKeys: [],
   contents: [],
   audits: [],
-  initDemoData: () => {
-    const now = dayjs()
-    const seed = [
-      { full_name: 'Adwaith R Rajesh', email: 'adwaithrrajesh.dev@gmail.com' },
-      { full_name: 'Harsh Shah', email: 'harshshah419@gmail.com' },
-      { full_name: 'Twinkal Shah', email: 'twinkal@mailsfinder.com' },
-      { full_name: 'Krish', email: 'krish@flowxperia.com' }
-    ]
-    const users: User[] = seed.map((base, i) => {
-      const id = uuidv4()
-      const plan: User['plan'] = i % 4 === 0 ? 'free' : i % 4 === 1 ? 'monthly' : i % 4 === 2 ? 'lifetime' : 'payg'
-      const subs: User['subscription_status'] = plan === 'free' ? 'none' : 'active'
-      const credits_find = Math.floor(Math.random() * 200000)
-      const credits_verify = Math.floor(Math.random() * 200000)
-      const createdAt = now.subtract(Math.floor(Math.random() * 120), 'day').toISOString()
-      const lastSeen = now.subtract(Math.floor(Math.random() * 40), 'day').toISOString()
-      return {
-        id,
-        full_name: base.full_name,
-        email: base.email,
-        phone: undefined,
-        country: undefined,
-        onboarding_flag: true,
-        createdAt,
-        lastSeen,
-        plan,
-        credits_total: credits_find + credits_verify,
-        credits_find,
-        credits_verify,
-        subscription_status: subs,
-        email_verified: true
-      }
-    })
-    const PLAN_PRICES: Record<User['plan'], number | null> = {
-      free: 0,
-      monthly: 49,
-      lifetime: 249,
-      payg: null
-    }
-    const purchases: Purchase[] = users
-      .filter(u => u.plan !== 'free')
-      .map(u => ({
-        id: uuidv4(),
-        userId: u.id,
-        planName: u.plan,
-        status: Math.random() > 0.1 ? 'paid' : 'refunded',
-        date: dayjs(u.createdAt).add(Math.floor(Math.random() * 20), 'day').toISOString(),
-        amount: PLAN_PRICES[u.plan] ?? 0
-      }))
-    const apiKeys: ApiKey[] = users.slice(0, 10).map(u => {
-      const full = uuidv4().replace(/-/g, '') + uuidv4().replace(/-/g, '')
-      return {
-        id: uuidv4(),
-        userId: u.id,
-        keyPrefix: toKeyPrefix(full),
-        encryptedKey: encrypt(full, ENCRYPTION_SECRET),
-        rateLimitPerMinute: 60,
-        lastUsedAt: dayjs().subtract(Math.floor(Math.random() * 10), 'day').toISOString(),
-        usageCount: Math.floor(Math.random() * 1000),
-        status: 'active',
-        createdAt: dayjs().subtract(Math.floor(Math.random() * 60), 'day').toISOString()
-      }
-    })
-    set({ users, purchases, apiKeys })
+  initEmptyState: () => {
+    set({ users: [], purchases: [], apiKeys: [], contents: [], audits: [] })
   },
 
   addCredits: (userId, delta, adminId, reason) => {

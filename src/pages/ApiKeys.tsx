@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useDataStore } from '../store/data'
-import { Card, Table, Tag, Typography, Button, Modal, Form, Input, Select, Skeleton, message, theme } from 'antd'
+import { Card, Table, Tag, Typography, Button, Modal, Form, Input, Select, Skeleton, Result, message } from 'antd'
 import dayjs from 'dayjs'
 import { ApiKey, User } from '../types/types'
 import { useAuthStore } from '../store/auth'
 import { hasScope } from '../store/rbac'
 
 export default function ApiKeys() {
-  const { apiKeys, users, initDemoData, revokeApiKey, createApiKey, updateApiKeyRateLimit, setAll } = useDataStore()
+  const { apiKeys, users, revokeApiKey, createApiKey, updateApiKeyRateLimit, setAll } = useDataStore()
   const { admin, token } = useAuthStore()
   const [createOpen, setCreateOpen] = useState(false)
   const [rateLimit, setRateLimit] = useState<number>(60)
@@ -18,12 +18,9 @@ export default function ApiKeys() {
   const [loading, setLoading] = useState(false)
   const [revokeLoading, setRevokeLoading] = useState(false)
   const [rateLoading, setRateLoading] = useState(false)
+  const [backendError, setBackendError] = useState<string | null>(null)
   const [recentlyUpdatedIds, setRecentlyUpdatedIds] = useState<Set<string>>(new Set())
   const isDarkMode = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'dark'
-
-  useEffect(() => {
-    if (users.length === 0) initDemoData()
-  }, [])
 
   useEffect(() => {
     const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8000' : 'https://server.mailsfinder.com')
@@ -32,11 +29,15 @@ export default function ApiKeys() {
       if (apiKeys.length > 0) return
       try {
         setLoading(true)
+        setBackendError(null)
         const bearer = token || localStorage.getItem('ADMIN_TOKEN') || ''
         const res = await fetch(`${API_BASE_URL}/api/admin/dashboard/bootstrap`, {
           headers: { Authorization: bearer ? `Bearer ${bearer}` : '' },
         })
-        if (!res.ok) return
+        if (!res.ok) {
+          setBackendError('Failed to load. Backend may be unreachable.')
+          return
+        }
         const body = await res.json()
         if (cancelled) return
         const source = Array.isArray(body.apiKeys)
@@ -59,7 +60,9 @@ export default function ApiKeys() {
           createdAt: (k.createdAt && new Date(k.createdAt).toISOString()) || new Date().toISOString()
         }))
         if (mapped.length > 0) setAll({ apiKeys: mapped })
-      } catch {} finally {
+      } catch {
+        setBackendError('Failed to load. Backend may be unreachable.')
+      } finally {
         if (!cancelled) setLoading(false)
       }
     }
@@ -159,6 +162,8 @@ export default function ApiKeys() {
       <Card>
         {loading && apiKeys.length === 0 ? (
           <Skeleton active paragraph={{ rows: 4 }} />
+        ) : backendError && apiKeys.length === 0 ? (
+          <Result status="error" title="Failed to load" subTitle="Backend may be unreachable." />
         ) : (
           <Table<ApiKey>
             rowKey="id"

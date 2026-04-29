@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Card, Typography, Row, Col, List, Tag, Skeleton, theme } from 'antd'
+import { useEffect, useState } from 'react'
+import { Card, Typography, Row, Col, List, Tag, Skeleton, Result, theme } from 'antd'
 import {
   ResponsiveContainer,
   BarChart,
@@ -44,7 +44,7 @@ function KPI({ title, value, suffix, delta }: { title: string; value: number | s
 }
 
 export default function Dashboard() {
-  const { users, purchases, audits, apiKeys, initDemoData, setAll } = useDataStore()
+  const { setAll } = useDataStore()
   const { token } = useAuthStore()
   const [loading, setLoading] = useState(false)
   const [backendError, setBackendError] = useState<string | null>(null)
@@ -205,8 +205,9 @@ export default function Dashboard() {
         if (body.metrics) setMetrics(body.metrics)
       } catch (e) {
         if (cancelled) return
-        if (users.length === 0) initDemoData()
-        setBackendError('Using demo data because backend is not reachable.')
+        setAll({ users: [], purchases: [], apiKeys: [], audits: [] })
+        setMetrics(null)
+        setBackendError('Failed to load. Backend may be unreachable.')
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -217,7 +218,7 @@ export default function Dashboard() {
     return () => {
       cancelled = true
     }
-  }, [setAll, initDemoData, token, range.from, range.to])
+  }, [setAll, token, range.from, range.to])
 
   const usersByPlanDisplay: { name: Plan; value: number }[] = (() => {
     const map = new Map<string, number>((metrics?.usersByPlan ?? []).map(i => [String(i.name).toLowerCase(), Number(i.value) || 0]))
@@ -226,6 +227,20 @@ export default function Dashboard() {
   const usersByPlanTotal = usersByPlanDisplay.reduce((acc, i) => acc + (i.value || 0), 0)
 
   const recentItems = metrics?.latestActivity ?? []
+
+  if (backendError && !loading && !metrics) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+          <Typography.Title level={3} style={{ margin: 0 }}>Dashboard</Typography.Title>
+          <DateFilter value={range} onChange={setRange} />
+        </div>
+        <Card>
+          <Result status="error" title="Failed to load" subTitle="Backend may be unreachable." />
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
