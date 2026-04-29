@@ -1,62 +1,57 @@
 import { useEffect, useState } from 'react'
 import { useDataStore } from '../store/data'
-import { Button, Card, Form, Input, List, Modal, Typography } from 'antd'
+import { Button, Card, Form, Input, List, Modal, Typography, message } from 'antd'
 import ReactMarkdown from 'react-markdown'
 import dayjs from 'dayjs'
 import { ContentItem } from '../types/types'
 import { useAuthStore } from '../store/auth'
 import { hasScope } from '../store/rbac'
+import { mapContent } from '../utils/mappers'
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8000' : 'https://server.mailsfinder.com')
 
 export default function CMSLite() {
-  const { contents, upsertContent, publishContent, setAll } = useDataStore()
+  const { contents, setAll } = useDataStore()
   const { admin, token } = useAuthStore()
   const [editing, setEditing] = useState<Partial<ContentItem> | null>(null)
-  const [reason, setReason] = useState<string>('')
-  const [openModal, setOpenModal] = useState<boolean>(false)
   const [loading, setLoading] = useState<boolean>(false)
   const [saving, setSaving] = useState<boolean>(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [backendError, setBackendError] = useState<string | null>(null)
+
+  function authHeader(): string {
+    const bearer = token || localStorage.getItem('ADMIN_TOKEN') || ''
+    return bearer ? `Bearer ${bearer}` : ''
+  }
+
+  async function reloadContents(signal?: AbortSignal) {
+    const res = await fetch(`${API_BASE_URL}/api/admin/contentManagement/getAllContent`, {
+      headers: { Authorization: authHeader() },
+      signal
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const body = await res.json()
+    const source = Array.isArray(body) ? body : Array.isArray(body?.contents) ? body.contents : []
+    setAll({ contents: source.map(mapContent) })
+  }
 
   useEffect(() => {
     let cancelled = false
-    async function load() {
-      setLoading(true)
-      setBackendError(null)
-      try {
-        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8000' : 'https://server.mailsfinder.com')
-        const bearer = token || localStorage.getItem('ADMIN_TOKEN') || ''
-        const res = await fetch(`${API_BASE_URL}/api/admin/contentManagement/getAllContent`, {
-          headers: { Authorization: bearer ? `Bearer ${bearer}` : '' }
-        })
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const body = await res.json()
-        if (cancelled) return
-        const source = Array.isArray(body) ? body : Array.isArray(body?.contents) ? body.contents : []
-        const mapped = source.map((c: any) => ({
-          id: String(c._id ?? c.id),
-          title: c.title ?? '',
-          slug: c.slug ?? '',
-          summary: c.summary ?? undefined,
-          body: c.body ?? '',
-          attachments: Array.isArray(c.attachments) ? c.attachments : [],
-          published: !!(c.published ?? c.is_published),
-          updatedAt:
-            (c.updatedAt && new Date(c.updatedAt).toISOString()) ||
-            (c.createdAt && new Date(c.createdAt).toISOString()) ||
-            new Date().toISOString()
-        })) as ContentItem[]
-        setAll({ contents: mapped })
-      } catch (e) {
-        setBackendError('Failed to load content')
-      } finally {
+    const controller = new AbortController()
+    setLoading(true)
+    setBackendError(null)
+    reloadContents(controller.signal)
+      .catch(() => {
+        if (!cancelled) setBackendError('Failed to load content')
+      })
+      .finally(() => {
         if (!cancelled) setLoading(false)
-      }
-    }
-    load()
+      })
     return () => {
       cancelled = true
+      controller.abort()
     }
-  }, [token, setAll])
+  }, [token])
 
   function startCreate() {
     setEditing({
@@ -76,103 +71,58 @@ export default function CMSLite() {
       body: values.body,
       attachments: values.attachments?.split(',').map((s: string) => s.trim()).filter(Boolean) || []
     }
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8000' : 'https://server.mailsfinder.com')
     setSaving(true)
+    setBackendError(null)
     try {
-      if (editing?.id) {
-        const bearer = token || localStorage.getItem('ADMIN_TOKEN') || ''
-        const res = await fetch(`${API_BASE_URL}/api/admin/contentManagement/updatedContent/${editing.id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: bearer ? `Bearer ${bearer}` : ''
-          },
-          body: JSON.stringify(payload)
-        })
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      } else {
-        const bearer2 = token || localStorage.getItem('ADMIN_TOKEN') || ''
-        const res = await fetch(`${API_BASE_URL}/api/admin/contentManagement/createContent`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: bearer2 ? `Bearer ${bearer2}` : ''
-          },
-          body: JSON.stringify(payload)
-        })
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      }
-      const bearer3 = token || localStorage.getItem('ADMIN_TOKEN') || ''
-      const reload = await fetch(`${API_BASE_URL}/api/admin/contentManagement/getAllContent`, {
-        headers: { Authorization: bearer3 ? `Bearer ${bearer3}` : '' }
+      const url = editing?.id
+        ? `${API_BASE_URL}/api/admin/contentManagement/updatedContent/${editing.id}`
+        : `${API_BASE_URL}/api/admin/contentManagement/createContent`
+      const method = editing?.id ? 'PUT' : 'POST'
+      const res = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: authHeader()
+        },
+        body: JSON.stringify(payload)
       })
-      if (reload.ok) {
-        const body = await reload.json()
-        const source = Array.isArray(body) ? body : Array.isArray(body?.contents) ? body.contents : []
-        const mapped = source.map((c: any) => ({
-          id: String(c._id ?? c.id),
-          title: c.title ?? '',
-          slug: c.slug ?? '',
-          summary: c.summary ?? undefined,
-          body: c.body ?? '',
-          attachments: Array.isArray(c.attachments) ? c.attachments : [],
-          published: !!(c.published ?? c.is_published),
-          updatedAt:
-            (c.updatedAt && new Date(c.updatedAt).toISOString()) ||
-            (c.createdAt && new Date(c.createdAt).toISOString()) ||
-            new Date().toISOString()
-        })) as ContentItem[]
-        setAll({ contents: mapped })
-      }
-    } catch (e) {
-      setBackendError('Save failed')
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      await reloadContents()
+      message.success(editing?.id ? 'Content updated' : 'Content created')
+      setEditing(null)
+    } catch (e: any) {
+      setBackendError(e?.message || 'Save failed')
+      message.error(e?.message || 'Save failed')
     } finally {
       setSaving(false)
     }
   }
 
-  async function confirmPublish() {
-    if (!editing?.id) return
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8000' : 'https://server.mailsfinder.com')
-    try {
-      const bearer4 = token || localStorage.getItem('ADMIN_TOKEN') || ''
-      const res = await fetch(`${API_BASE_URL}/api/admin/contentManagement/updatedContent/${editing.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: bearer4 ? `Bearer ${bearer4}` : ''
-        },
-        body: JSON.stringify({ published: true, reason })
-      })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const bearer5 = token || localStorage.getItem('ADMIN_TOKEN') || ''
-      const reload = await fetch(`${API_BASE_URL}/api/admin/contentManagement/getAllContent`, {
-        headers: { Authorization: bearer5 ? `Bearer ${bearer5}` : '' }
-      })
-      if (reload.ok) {
-        const body = await reload.json()
-        const source = Array.isArray(body) ? body : Array.isArray(body?.contents) ? body.contents : []
-        const mapped = source.map((c: any) => ({
-          id: String(c._id ?? c.id),
-          title: c.title ?? '',
-          slug: c.slug ?? '',
-          summary: c.summary ?? undefined,
-          body: c.body ?? '',
-          attachments: Array.isArray(c.attachments) ? c.attachments : [],
-          published: !!(c.published ?? c.is_published),
-          updatedAt:
-            (c.updatedAt && new Date(c.updatedAt).toISOString()) ||
-            (c.createdAt && new Date(c.createdAt).toISOString()) ||
-            new Date().toISOString()
-        })) as ContentItem[]
-        setAll({ contents: mapped })
+  async function onDelete(item: ContentItem) {
+    if (!hasScope(admin.role, 'content.publish')) return
+    Modal.confirm({
+      title: 'Delete content',
+      content: `Delete "${item.title}"? This cannot be undone.`,
+      okText: 'Delete',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        setDeletingId(item.id)
+        try {
+          const res = await fetch(`${API_BASE_URL}/api/admin/contentManagement/deleteContent/${item.id}`, {
+            method: 'DELETE',
+            headers: { Authorization: authHeader() }
+          })
+          if (!res.ok && res.status !== 204) throw new Error(`HTTP ${res.status}`)
+          await reloadContents()
+          message.success('Content deleted')
+          if (editing?.id === item.id) setEditing(null)
+        } catch (e: any) {
+          message.error(e?.message || 'Delete failed')
+        } finally {
+          setDeletingId(null)
+        }
       }
-    } catch (e) {
-      setBackendError('Publish failed')
-    } finally {
-      setReason('')
-      setOpenModal(false)
-    }
+    })
   }
 
   return (
@@ -181,6 +131,10 @@ export default function CMSLite() {
         <Typography.Title level={3} style={{ margin: 0 }}>Content Management</Typography.Title>
         <Button type="primary" onClick={startCreate}>Create</Button>
       </div>
+
+      {backendError && (
+        <Typography.Text type="danger">{backendError}</Typography.Text>
+      )}
 
       <Card title="Create / Edit">
         <Form
@@ -200,7 +154,7 @@ export default function CMSLite() {
           <Form.Item label="body" name="body"><Input.TextArea rows={6} /></Form.Item>
           <Form.Item label="attachments" name="attachments"><Input placeholder="https://file1, https://file2" /></Form.Item>
           <Form.Item>
-            <Button type="primary" htmlType="submit">Save</Button>
+            <Button type="primary" htmlType="submit" loading={saving}>Save</Button>
           </Form.Item>
         </Form>
 
@@ -210,48 +164,38 @@ export default function CMSLite() {
           </Card>
         )}
 
-        <div style={{ marginTop: 12 }}>
-          <Button
-            type="default"
-            disabled={!hasScope(admin.role, 'content.publish') || !editing?.id}
-            onClick={() => setOpenModal(true)}
-          >
-            Publish
-          </Button>
-        </div>
+        <Typography.Paragraph type="secondary" style={{ marginTop: 12 }}>
+          Publish toggle is disabled — backend Content schema has no
+          `is_published` field yet (see docs/BACKEND_TODO.md).
+        </Typography.Paragraph>
       </Card>
 
-      <Card title="Content List">
+      <Card title="Content List" loading={loading && contents.length === 0}>
         <List
           dataSource={contents}
           renderItem={(c) => (
-            <List.Item actions={[<Button onClick={() => setEditing(c)}>Edit</Button>]}>
+            <List.Item
+              actions={[
+                <Button key="edit" onClick={() => setEditing(c)}>Edit</Button>,
+                <Button
+                  key="delete"
+                  danger
+                  loading={deletingId === c.id}
+                  disabled={!hasScope(admin.role, 'content.publish')}
+                  onClick={() => onDelete(c)}
+                >
+                  Delete
+                </Button>
+              ]}
+            >
               <List.Item.Meta
-                title={`${c.title} ${c.published ? '(published)' : ''}`}
+                title={c.title}
                 description={`slug: ${c.slug} • updated: ${dayjs(c.updatedAt).format('YYYY-MM-DD')}`}
               />
             </List.Item>
           )}
         />
       </Card>
-
-      <Modal
-        title="Publish Content"
-        open={openModal}
-        onOk={confirmPublish}
-        onCancel={() => setOpenModal(false)}
-        okButtonProps={{ disabled: !reason }}
-      >
-        <Typography.Paragraph type="secondary">
-          Publishing sets published=true and triggers a status flag so frontend can fetch new content.
-          An audit row will be recorded.
-        </Typography.Paragraph>
-        <Form layout="vertical">
-          <Form.Item label="Reason" required>
-            <Input.TextArea rows={3} value={reason} onChange={(e) => setReason(e.target.value)} />
-          </Form.Item>
-        </Form>
-      </Modal>
     </div>
   )
 }

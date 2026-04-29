@@ -4,6 +4,18 @@ This file tracks endpoints / fields the admin panel needs but that don't exist
 yet on `server.mailsfinder.com`. Each item is annotated with the calling
 codepath so a backend engineer can pick it up.
 
+## Content publish toggle
+
+- The Content update schema currently has `additionalProperties: false`
+  with no `is_published` (or `published`) field, so PUT
+  `{ published: true }` is silently dropped.
+- **Need:** add an `is_published: boolean` column to the Content model
+  and allow it in the update schema. Optional: a dedicated `POST
+  /api/admin/contentManagement/publishContent/:id` route if the team
+  prefers that shape.
+- **Frontend caller:** `src/pages/CMSLite.tsx` (Publish button is
+  currently removed pending backend support).
+
 ## API key encryption belongs server-side
 
 - The Zustand store has helper code that encrypts API keys with
