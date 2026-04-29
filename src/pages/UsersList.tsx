@@ -624,7 +624,7 @@ export default function UsersList() {
             rowKey="id"
             dataSource={filtered}
             columns={columns}
-            pagination={{ pageSize: 10 }}
+            pagination={{ pageSize: 50, showSizeChanger: true, pageSizeOptions: [25, 50, 100] }}
             rowSelection={rowSelection}
             scroll={{ x: 'max-content' }}
             size="small"

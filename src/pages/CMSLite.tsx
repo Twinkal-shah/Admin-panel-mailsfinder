@@ -173,6 +173,7 @@ export default function CMSLite() {
       <Card title="Content List" loading={loading && contents.length === 0}>
         <List
           dataSource={contents}
+          pagination={{ pageSize: 25 }}
           renderItem={(c) => (
             <List.Item
               actions={[
