@@ -9,6 +9,7 @@ import ApiKeys from './pages/ApiKeys'
 import AuditLogs from './pages/AuditLogs'
 import Login from './pages/Login'
 import { useAuthStore } from './store/auth'
+import { setUnauthorizedHandler } from './utils/api'
 import { useEffect, useMemo, useState } from 'react'
 
 function ProtectedRoute({ children }: { children: JSX.Element }) {
@@ -28,10 +29,16 @@ export default function App() {
     localStorage.setItem('theme', isDark ? 'dark' : 'light')
   }, [isDark])
 
-  const { restoreFromToken } = useAuthStore()
+  const { restoreFromToken, logout } = useAuthStore()
   useEffect(() => {
     restoreFromToken()
-  }, [restoreFromToken])
+    setUnauthorizedHandler(() => {
+      logout()
+      if (typeof window !== 'undefined') {
+        window.location.assign('/login')
+      }
+    })
+  }, [restoreFromToken, logout])
 
   const tokens = useMemo(() => {
     return isDark

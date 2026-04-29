@@ -25,7 +25,7 @@ interface AuthState {
   admin: Admin
   token?: string
   isAuthenticated: boolean
-  login: (admin: Omit<Admin, 'scopes'>, token: string) => void
+  login: (admin: Omit<Admin, 'scopes'>, token: string, refreshToken?: string) => void
   logout: () => void
   restoreFromToken: () => void
 }
@@ -69,9 +69,10 @@ export const useAuthStore = create<AuthState>((set) => {
       },
     token: initialToken,
     isAuthenticated: !!adminFromToken,
-    login: (admin, token) => {
+    login: (admin, token, refreshToken) => {
       try {
         localStorage.setItem('ADMIN_TOKEN', token)
+        if (refreshToken) localStorage.setItem('ADMIN_REFRESH_TOKEN', refreshToken)
       } catch {}
       set({
         admin: { ...admin, scopes: scopesForRole(admin.role) },
@@ -82,6 +83,7 @@ export const useAuthStore = create<AuthState>((set) => {
     logout: () => {
       try {
         localStorage.removeItem('ADMIN_TOKEN')
+        localStorage.removeItem('ADMIN_REFRESH_TOKEN')
       } catch {}
       set({
         admin: {

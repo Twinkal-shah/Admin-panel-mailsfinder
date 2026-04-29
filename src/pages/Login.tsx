@@ -38,6 +38,10 @@ export default function Login() {
         body.session?.token ||
         body.data?.accessToken
       if (!token) throw new Error('Missing ADMIN_TOKEN in response')
+      const refreshToken: string | undefined =
+        body.data?.refreshToken ||
+        body.refreshToken ||
+        body.refresh_token
       const adminData = body.data?.admin
       const admin = {
         id: String(adminData?._id ?? adminData?.id ?? 'admin-1'),
@@ -45,7 +49,7 @@ export default function Login() {
         email: adminData?.email ?? email,
         role: (adminData?.role ?? 'superadmin') as Role
       }
-      login(admin, token)
+      login(admin, token, refreshToken)
       navigate('/', { replace: true })
     } catch (e: any) {
       setError(e?.message || 'Login failed')
