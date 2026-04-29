@@ -4,6 +4,7 @@ import { Button, Card, Form, Input, Modal, Select, Table, Tag, Typography, DateP
 import type { ColumnsType } from 'antd/es/table'
 import { PLAN_DISPLAY_NAME, User } from '../types/types'
 import { PLAN_COLORS, PLAN_ORDER, badgeStyles, rowAccentStyle } from '../ui/planTheme'
+import { mapUser } from '../utils/mappers'
 import dayjs from 'dayjs'
 import { useAuthStore } from '../store/auth'
 import { hasScope } from '../store/rbac'
@@ -62,41 +63,7 @@ export default function UsersList() {
         })
         if (cancelled) return
         const source = Array.isArray(res.data?.data) ? res.data.data : []
-        const mapped: User[] = source.map((u: any) => {
-          const planRaw = String(u.plan ?? 'free').toLowerCase()
-          const plan: User['plan'] =
-            planRaw === 'monthly' || planRaw === 'lifetime' || planRaw === 'payg' ? (planRaw as User['plan']) : 'free'
-          const subscription_status: User['subscription_status'] = plan === 'free' ? 'none' : 'active'
-          const credits_find = Number(u.credits_find ?? 0)
-          const credits_verify = Number(u.credits_verify ?? 0)
-          const credits_total = Number(u.credits ?? credits_find + credits_verify)
-          return {
-            id: String(u._id ?? u.id),
-            full_name: String(u.full_name ?? u.name ?? ''),
-            email: String(u.email ?? ''),
-            phone: u.phone ?? undefined,
-            country: u.country ?? undefined,
-            onboarding_flag: typeof u.onboarding_flag === 'boolean' ? u.onboarding_flag : undefined,
-            createdAt: (u.createdAt && new Date(u.createdAt).toISOString()) || new Date().toISOString(),
-            lastSeen: (u.lastSeen && new Date(u.lastSeen).toISOString()) || undefined,
-            plan,
-            credits_total,
-            credits_find,
-            credits_verify,
-            subscription_status,
-            email_verified: !!u.email_verified,
-            admin_notes: u.admin_notes ?? undefined,
-            monthly_balance: u.monthly_balance,
-            lifetime_balance: u.lifetime_balance,
-            payg_balance: u.payg_balance,
-            free_daily_balance: u.free_daily_balance,
-            billing_cycle: u.billing_cycle,
-            cycle_end_date: u.cycle_end_date,
-            lemonsqueezy_customer_id: u.lemonsqueezy_customer_id,
-            lemonsqueezy_portal_url: u.lemonsqueezy_portal_url
-          }
-        })
-        setAll({ users: mapped })
+        setAll({ users: source.map(mapUser) })
       } catch (e: any) {
         const status = e?.response?.status
         if (status === 401) {
@@ -137,33 +104,7 @@ export default function UsersList() {
         params: { ts: Date.now() }
       })
       const source = Array.isArray(res.data?.data) ? res.data.data : []
-      const mapped: User[] = source.map((u: any) => {
-        const planRaw = String(u.plan ?? 'free').toLowerCase()
-        const plan: User['plan'] =
-          planRaw === 'monthly' || planRaw === 'lifetime' || planRaw === 'payg' ? (planRaw as User['plan']) : 'free'
-        const subscription_status: User['subscription_status'] = plan === 'free' ? 'none' : 'active'
-        const credits_find = Number(u.credits_find ?? 0)
-        const credits_verify = Number(u.credits_verify ?? 0)
-        const credits_total = Number(u.credits ?? credits_find + credits_verify)
-        return {
-          id: String(u._id ?? u.id),
-          full_name: String(u.full_name ?? u.name ?? ''),
-          email: String(u.email ?? ''),
-          phone: u.phone ?? undefined,
-          country: u.country ?? undefined,
-          onboarding_flag: typeof u.onboarding_flag === 'boolean' ? u.onboarding_flag : undefined,
-          createdAt: (u.createdAt && new Date(u.createdAt).toISOString()) || new Date().toISOString(),
-          lastSeen: (u.lastSeen && new Date(u.lastSeen).toISOString()) || undefined,
-          plan,
-          credits_total,
-          credits_find,
-          credits_verify,
-          subscription_status,
-          email_verified: !!u.email_verified,
-          admin_notes: u.admin_notes ?? undefined
-        }
-      })
-      setAll({ users: mapped })
+      setAll({ users: source.map(mapUser) })
     } catch (e: any) {
       const status = e?.response?.status
       if (status === 401) {
@@ -403,37 +344,7 @@ export default function UsersList() {
       if (res.status === 200) {
         const u = res.data?.data || res.data
         if (u && (u._id || u.id)) {
-          const planRaw = String(u.plan ?? 'free').toLowerCase()
-          const plan: User['plan'] =
-            planRaw === 'monthly' || planRaw === 'lifetime' || planRaw === 'payg' ? (planRaw as User['plan']) : 'free'
-          const credits_find = Number(u.credits_find ?? 0)
-          const credits_verify = Number(u.credits_verify ?? 0)
-          const credits_total = Number(u.credits ?? credits_find + credits_verify)
-          const updated: User = {
-            id: String(u._id ?? u.id),
-            full_name: String(u.full_name ?? u.name ?? ''),
-            email: String(u.email ?? ''),
-            phone: u.phone ?? undefined,
-            country: u.country ?? undefined,
-            onboarding_flag: typeof u.onboarding_flag === 'boolean' ? u.onboarding_flag : undefined,
-            createdAt: (u.createdAt && new Date(u.createdAt).toISOString()) || new Date().toISOString(),
-            lastSeen: (u.lastSeen && new Date(u.lastSeen).toISOString()) || undefined,
-            plan,
-            credits_total,
-            credits_find,
-            credits_verify,
-            subscription_status: plan === 'free' ? 'none' : 'active',
-            email_verified: !!u.email_verified,
-            admin_notes: u.admin_notes ?? undefined,
-            monthly_balance: u.monthly_balance,
-            lifetime_balance: u.lifetime_balance,
-            payg_balance: u.payg_balance,
-            free_daily_balance: u.free_daily_balance,
-            billing_cycle: u.billing_cycle,
-            cycle_end_date: u.cycle_end_date,
-            lemonsqueezy_customer_id: u.lemonsqueezy_customer_id,
-            lemonsqueezy_portal_url: u.lemonsqueezy_portal_url
-          }
+          const updated = mapUser(u)
           setAll({
             users: users.map(orig => (orig.id === updated.id ? updated : orig))
           })

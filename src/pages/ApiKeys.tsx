@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react'
 import { useDataStore } from '../store/data'
 import { Card, Table, Tag, Typography, Button, Modal, Form, Input, Select, Skeleton, Result, Tooltip, message } from 'antd'
 import dayjs from 'dayjs'
-import { ApiKey, User } from '../types/types'
+import { ApiKey } from '../types/types'
 import { useAuthStore } from '../store/auth'
 import { hasScope } from '../store/rbac'
+import { mapApiKey } from '../utils/mappers'
 
 export default function ApiKeys() {
   const { apiKeys, users, revokeApiKey, createApiKey, updateApiKeyRateLimit, setAll } = useDataStore()
@@ -46,20 +47,7 @@ export default function ApiKeys() {
           : Array.isArray(body.apikeys)
           ? body.apikeys
           : []
-        const mapped = source.map((k: any) => ({
-          id: String(k._id ?? k.id),
-          userId: k.userId ? String(k.userId) : undefined,
-          keyPrefix: k.keyPrefix ?? (typeof k.apiKey === 'string' ? k.apiKey.slice(0, 8) : ''),
-          encryptedKey: 'hidden',
-          rateLimitPerMinute: k.rateLimitPerMinute ?? 60,
-          lastUsedAt:
-            (k.lastUsedAt && new Date(k.lastUsedAt).toISOString()) ||
-            (k.updatedAt && new Date(k.updatedAt).toISOString()) ||
-            undefined,
-          usageCount: k.usageCount ?? 0,
-          status: k.isActive === false ? 'revoked' : 'active',
-          createdAt: (k.createdAt && new Date(k.createdAt).toISOString()) || new Date().toISOString()
-        }))
+        const mapped = source.map(mapApiKey)
         if (mapped.length > 0) setAll({ apiKeys: mapped })
       } catch {
         setBackendError('Failed to load. Backend may be unreachable.')

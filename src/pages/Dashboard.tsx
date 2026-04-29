@@ -16,7 +16,8 @@ import {
 import DateFilter, { DateRange, DatePreset } from '../components/DateFilter'
 import { useDataStore } from '../store/data'
 import { useAuthStore } from '../store/auth'
-import { PLAN_DISPLAY_NAME, Plan, SubscriptionStatus } from '../types/types'
+import { PLAN_DISPLAY_NAME, Plan } from '../types/types'
+import { mapApiKey, mapUser } from '../utils/mappers'
 import { PLAN_COLORS, PLAN_ORDER } from '../ui/planTheme'
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
@@ -87,63 +88,7 @@ export default function Dashboard() {
         const body = await res.json()
         if (cancelled) return
 
-        const usersMapped =
-          Array.isArray(body.users)
-            ? body.users.map((u: any) => {
-                const planRaw = String(u.plan ?? 'free').toLowerCase()
-                const plan: Plan =
-                  planRaw === 'monthly' || planRaw === 'lifetime' || planRaw === 'payg'
-                    ? (planRaw as Plan)
-                    : 'free'
-
-                const subsRaw: string =
-                  u.subscription?.status ??
-                  u.subscription_status ??
-                  'none'
-                const subscription_status: SubscriptionStatus =
-                  subsRaw === 'active' || subsRaw === 'cancelled' || subsRaw === 'past_due'
-                    ? (subsRaw as SubscriptionStatus)
-                    : 'none'
-
-                const credits_find = u.credits_find ?? 0
-                const credits_verify = u.credits_verify ?? 0
-                const credits_total = u.credits ?? credits_find + credits_verify
-
-                return {
-                  id: String(u._id ?? u.id),
-                  full_name: u.full_name ?? u.name ?? '',
-                  email: u.email,
-                  phone: u.phone ?? undefined,
-                  country: u.country ?? undefined,
-                  onboarding_flag:
-                    typeof u.onboarding_flag === 'boolean'
-                      ? u.onboarding_flag
-                      : u.onboarding_completed === undefined
-                      ? undefined
-                      : !u.onboarding_completed,
-                  createdAt: (u.createdAt && new Date(u.createdAt).toISOString()) || new Date().toISOString(),
-                  lastSeen:
-                    (u.lastSeen && new Date(u.lastSeen).toISOString()) ||
-                    (u.updatedAt && new Date(u.updatedAt).toISOString()) ||
-                    undefined,
-                  plan,
-                  credits_total,
-                  credits_find,
-                  credits_verify,
-                  subscription_status,
-                  email_verified: !!u.email_verified,
-                  admin_notes: u.admin_notes ?? undefined,
-                  monthly_balance: u.monthly_balance,
-                  lifetime_balance: u.lifetime_balance,
-                  payg_balance: u.payg_balance,
-                  free_daily_balance: u.free_daily_balance,
-                  billing_cycle: u.billing_cycle,
-                  cycle_end_date: u.cycle_end_date,
-                  lemonsqueezy_customer_id: u.lemonsqueezy_customer_id,
-                  lemonsqueezy_portal_url: u.lemonsqueezy_portal_url
-                }
-              })
-            : []
+        const usersMapped = Array.isArray(body.users) ? body.users.map(mapUser) : []
 
         const purchasesMapped =
           Array.isArray(body.purchases)
@@ -179,20 +124,7 @@ export default function Dashboard() {
           ? body.apikeys
           : []
 
-        const apiKeysMapped = apiKeysMappedSource.map((k: any) => ({
-          id: String(k._id ?? k.id),
-          userId: k.userId ? String(k.userId) : undefined,
-          keyPrefix: k.keyPrefix ?? (typeof k.apiKey === 'string' ? k.apiKey.slice(0, 8) : ''),
-          encryptedKey: 'hidden',
-          rateLimitPerMinute: k.rateLimitPerMinute ?? 60,
-          lastUsedAt:
-            (k.lastUsedAt && new Date(k.lastUsedAt).toISOString()) ||
-            (k.updatedAt && new Date(k.updatedAt).toISOString()) ||
-            undefined,
-          usageCount: k.usageCount ?? 0,
-          status: k.isActive === false ? 'revoked' : 'active',
-          createdAt: (k.createdAt && new Date(k.createdAt).toISOString()) || new Date().toISOString()
-        }))
+        const apiKeysMapped = apiKeysMappedSource.map(mapApiKey)
 
         const auditsMapped = Array.isArray(body.audits) ? body.audits : []
 
