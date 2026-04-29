@@ -1,6 +1,20 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useDataStore } from '../store/data'
-import { Button, Card, Form, Input, List, Modal, Typography, message } from 'antd'
+import {
+  Button,
+  Card,
+  Form,
+  Input,
+  Modal,
+  Select,
+  Space,
+  Switch,
+  Table,
+  Tag,
+  Typography,
+  message
+} from 'antd'
+import type { ColumnsType } from 'antd/es/table'
 import ReactMarkdown from 'react-markdown'
 import dayjs from 'dayjs'
 import { ContentItem } from '../types/types'
@@ -10,14 +24,26 @@ import { mapContent } from '../utils/mappers'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8000' : 'https://server.mailsfinder.com')
 
+type StatusFilter = 'all' | 'published' | 'drafts'
+
+interface EditState extends Partial<ContentItem> {
+  // local-only flag for the form Switch — stays in sync with `published`
+  publishedFlag?: boolean
+}
+
 export default function CMSLite() {
   const { contents, setAll } = useDataStore()
   const { admin, token } = useAuthStore()
-  const [editing, setEditing] = useState<Partial<ContentItem> | null>(null)
+  const [editing, setEditing] = useState<EditState | null>(null)
   const [loading, setLoading] = useState<boolean>(false)
   const [saving, setSaving] = useState<boolean>(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [togglingId, setTogglingId] = useState<string | null>(null)
   const [backendError, setBackendError] = useState<string | null>(null)
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [form] = Form.useForm()
+
+  const canPublish = hasScope(admin.role, 'content.publish')
 
   function authHeader(): string {
     const bearer = token || localStorage.getItem('ADMIN_TOKEN') || ''
@@ -53,14 +79,32 @@ export default function CMSLite() {
     }
   }, [token])
 
+  // Sync the form when entering edit mode or starting fresh.
+  useEffect(() => {
+    if (!editing) return
+    form.setFieldsValue({
+      title: editing.title ?? '',
+      slug: editing.slug ?? '',
+      summary: editing.summary ?? '',
+      body: editing.body ?? '',
+      attachments: editing.attachments?.join(', ') ?? '',
+      published: !!editing.publishedFlag
+    })
+  }, [editing, form])
+
   function startCreate() {
     setEditing({
       title: '',
       slug: '',
       summary: '',
       body: '',
-      attachments: []
+      attachments: [],
+      publishedFlag: false
     })
+  }
+
+  function startEdit(item: ContentItem) {
+    setEditing({ ...item, publishedFlag: !!item.published })
   }
 
   async function onSave(values: any) {
@@ -69,7 +113,8 @@ export default function CMSLite() {
       slug: values.slug,
       summary: values.summary,
       body: values.body,
-      attachments: values.attachments?.split(',').map((s: string) => s.trim()).filter(Boolean) || []
+      attachments: values.attachments?.split(',').map((s: string) => s.trim()).filter(Boolean) || [],
+      is_published: !!values.published
     }
     setSaving(true)
     setBackendError(null)
@@ -90,6 +135,7 @@ export default function CMSLite() {
       await reloadContents()
       message.success(editing?.id ? 'Content updated' : 'Content created')
       setEditing(null)
+      form.resetFields()
     } catch (e: any) {
       setBackendError(e?.message || 'Save failed')
       message.error(e?.message || 'Save failed')
@@ -99,7 +145,7 @@ export default function CMSLite() {
   }
 
   async function onDelete(item: ContentItem) {
-    if (!hasScope(admin.role, 'content.publish')) return
+    if (!canPublish) return
     Modal.confirm({
       title: 'Delete content',
       content: `Delete "${item.title}"? This cannot be undone.`,
@@ -115,7 +161,10 @@ export default function CMSLite() {
           if (!res.ok && res.status !== 204) throw new Error(`HTTP ${res.status}`)
           await reloadContents()
           message.success('Content deleted')
-          if (editing?.id === item.id) setEditing(null)
+          if (editing?.id === item.id) {
+            setEditing(null)
+            form.resetFields()
+          }
         } catch (e: any) {
           message.error(e?.message || 'Delete failed')
         } finally {
@@ -124,6 +173,91 @@ export default function CMSLite() {
       }
     })
   }
+
+  async function togglePublish(item: ContentItem) {
+    if (!canPublish) return
+    const next = !item.published
+    setTogglingId(item.id)
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/admin/contentManagement/updatedContent/${item.id}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
+          body: JSON.stringify({ is_published: next })
+        }
+      )
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      await reloadContents()
+      message.success(next ? 'Published' : 'Unpublished')
+    } catch (e: any) {
+      message.error(e?.message || 'Toggle failed')
+    } finally {
+      setTogglingId(null)
+    }
+  }
+
+  const filteredContents = useMemo(() => {
+    if (statusFilter === 'published') return contents.filter(c => c.published)
+    if (statusFilter === 'drafts') return contents.filter(c => !c.published)
+    return contents
+  }, [contents, statusFilter])
+
+  const columns: ColumnsType<ContentItem> = [
+    {
+      title: 'Title',
+      dataIndex: 'title',
+      key: 'title'
+    },
+    {
+      title: 'Slug',
+      dataIndex: 'slug',
+      key: 'slug',
+      render: (s: string) => <Typography.Text code>{s}</Typography.Text>
+    },
+    {
+      title: 'Status',
+      dataIndex: 'published',
+      key: 'published',
+      width: 120,
+      render: (p: boolean) => (p ? <Tag color="green">Published</Tag> : <Tag>Draft</Tag>)
+    },
+    {
+      title: 'Updated',
+      dataIndex: 'updatedAt',
+      key: 'updatedAt',
+      width: 140,
+      render: (d: string) => (d ? dayjs(d).format('MMM D, YYYY') : '-')
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      width: 280,
+      render: (_, item) => (
+        <Space>
+          <Button size="small" onClick={() => startEdit(item)}>Edit</Button>
+          <Button
+            size="small"
+            type={item.published ? 'default' : 'primary'}
+            disabled={!canPublish}
+            loading={togglingId === item.id}
+            onClick={() => togglePublish(item)}
+          >
+            {item.published ? 'Unpublish' : 'Publish'}
+          </Button>
+          <Button
+            size="small"
+            danger
+            disabled={!canPublish}
+            loading={deletingId === item.id}
+            onClick={() => onDelete(item)}
+          >
+            Delete
+          </Button>
+        </Space>
+      )
+    }
+  ]
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -136,25 +270,29 @@ export default function CMSLite() {
         <Typography.Text type="danger">{backendError}</Typography.Text>
       )}
 
-      <Card title="Create / Edit">
+      <Card title={editing?.id ? 'Edit content' : 'Create content'}>
         <Form
           layout="vertical"
+          form={form}
           onFinish={onSave}
-          initialValues={{
-            title: editing?.title,
-            slug: editing?.slug,
-            summary: editing?.summary,
-            body: editing?.body,
-            attachments: editing?.attachments?.join(', ')
-          }}
         >
-          <Form.Item label="title" name="title" rules={[{ required: true }]}><Input /></Form.Item>
-          <Form.Item label="slug" name="slug" rules={[{ required: true }]}><Input /></Form.Item>
-          <Form.Item label="summary" name="summary"><Input /></Form.Item>
-          <Form.Item label="body" name="body"><Input.TextArea rows={6} /></Form.Item>
-          <Form.Item label="attachments" name="attachments"><Input placeholder="https://file1, https://file2" /></Form.Item>
+          <Form.Item label="Title" name="title" rules={[{ required: true }]}><Input /></Form.Item>
+          <Form.Item label="Slug" name="slug" rules={[{ required: true }]}><Input /></Form.Item>
+          <Form.Item label="Summary" name="summary"><Input /></Form.Item>
+          <Form.Item label="Body" name="body"><Input.TextArea rows={6} /></Form.Item>
+          <Form.Item label="Attachments" name="attachments"><Input placeholder="https://file1, https://file2" /></Form.Item>
+          <Form.Item label="Published" name="published" valuePropName="checked">
+            <Switch disabled={!canPublish} />
+          </Form.Item>
           <Form.Item>
-            <Button type="primary" htmlType="submit" loading={saving}>Save</Button>
+            <Space>
+              <Button type="primary" htmlType="submit" loading={saving}>Save</Button>
+              {editing && (
+                <Button onClick={() => { setEditing(null); form.resetFields() }}>
+                  Cancel
+                </Button>
+              )}
+            </Space>
           </Form.Item>
         </Form>
 
@@ -163,38 +301,31 @@ export default function CMSLite() {
             <ReactMarkdown>{editing.body}</ReactMarkdown>
           </Card>
         )}
-
-        <Typography.Paragraph type="secondary" style={{ marginTop: 12 }}>
-          Publish toggle is disabled — backend Content schema has no
-          `is_published` field yet (see docs/BACKEND_TODO.md).
-        </Typography.Paragraph>
       </Card>
 
-      <Card title="Content List" loading={loading && contents.length === 0}>
-        <List
-          dataSource={contents}
+      <Card
+        title="Content List"
+        extra={
+          <Select
+            value={statusFilter}
+            onChange={(v) => setStatusFilter(v)}
+            style={{ width: 160 }}
+            options={[
+              { value: 'all', label: 'All' },
+              { value: 'published', label: 'Published' },
+              { value: 'drafts', label: 'Drafts' }
+            ]}
+          />
+        }
+        loading={loading && contents.length === 0}
+      >
+        <Table<ContentItem>
+          rowKey="id"
+          dataSource={filteredContents}
+          columns={columns}
           pagination={{ pageSize: 25 }}
-          renderItem={(c) => (
-            <List.Item
-              actions={[
-                <Button key="edit" onClick={() => setEditing(c)}>Edit</Button>,
-                <Button
-                  key="delete"
-                  danger
-                  loading={deletingId === c.id}
-                  disabled={!hasScope(admin.role, 'content.publish')}
-                  onClick={() => onDelete(c)}
-                >
-                  Delete
-                </Button>
-              ]}
-            >
-              <List.Item.Meta
-                title={c.title}
-                description={`slug: ${c.slug} • updated: ${dayjs(c.updatedAt).format('YYYY-MM-DD')}`}
-              />
-            </List.Item>
-          )}
+          size="small"
+          scroll={{ x: 'max-content' }}
         />
       </Card>
     </div>
