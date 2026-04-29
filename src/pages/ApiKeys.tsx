@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useDataStore } from '../store/data'
-import { Card, Table, Tag, Typography, Button, Modal, Form, Input, Select, Skeleton, Result, message } from 'antd'
+import { Card, Table, Tag, Typography, Button, Modal, Form, Input, Select, Skeleton, Result, Tooltip, message } from 'antd'
 import dayjs from 'dayjs'
 import { ApiKey, User } from '../types/types'
 import { useAuthStore } from '../store/auth'
@@ -9,6 +9,7 @@ import { hasScope } from '../store/rbac'
 export default function ApiKeys() {
   const { apiKeys, users, revokeApiKey, createApiKey, updateApiKeyRateLimit, setAll } = useDataStore()
   const { admin, token } = useAuthStore()
+  const ADMIN_KEY_MGMT_ENABLED = false
   const [createOpen, setCreateOpen] = useState(false)
   const [rateLimit, setRateLimit] = useState<number>(60)
   const [userId, setUserId] = useState<string | undefined>(undefined)
@@ -99,12 +100,23 @@ export default function ApiKeys() {
       title: 'Actions',
       render: (_: any, record: ApiKey) => (
         <div style={{ display: 'flex', gap: 8 }}>
-          <Button disabled={!hasScope(admin.role, 'apikeys.manage')} onClick={() => setRateModal({ open: true, keyId: record.id, rate: record.rateLimitPerMinute })}>
-            Set rate limit
-          </Button>
-          <Button danger disabled={!hasScope(admin.role, 'apikeys.manage')} onClick={() => setRevokeModal({ open: true, keyId: record.id, reason: '' })}>
-            Revoke
-          </Button>
+          <Tooltip title={ADMIN_KEY_MGMT_ENABLED ? '' : 'Admin-side key management is not yet supported by the backend'}>
+            <Button
+              disabled={!ADMIN_KEY_MGMT_ENABLED || !hasScope(admin.role, 'apikeys.manage')}
+              onClick={() => setRateModal({ open: true, keyId: record.id, rate: record.rateLimitPerMinute })}
+            >
+              Set rate limit
+            </Button>
+          </Tooltip>
+          <Tooltip title={ADMIN_KEY_MGMT_ENABLED ? '' : 'Admin-side key management is not yet supported by the backend'}>
+            <Button
+              danger
+              disabled={!ADMIN_KEY_MGMT_ENABLED || !hasScope(admin.role, 'apikeys.manage')}
+              onClick={() => setRevokeModal({ open: true, keyId: record.id, reason: '' })}
+            >
+              Revoke
+            </Button>
+          </Tooltip>
         </div>
       )
     }
@@ -155,10 +167,21 @@ export default function ApiKeys() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <Typography.Title level={3} style={{ margin: 0 }}>API Keys</Typography.Title>
-        <Button type="primary" disabled={!hasScope(admin.role, 'apikeys.manage')} onClick={() => setCreateOpen(true)}>
-          Create
-        </Button>
+        <Tooltip title={ADMIN_KEY_MGMT_ENABLED ? '' : 'Admin-side key creation is not yet supported by the backend'}>
+          <Button
+            type="primary"
+            disabled={!ADMIN_KEY_MGMT_ENABLED || !hasScope(admin.role, 'apikeys.manage')}
+            onClick={() => setCreateOpen(true)}
+          >
+            Create
+          </Button>
+        </Tooltip>
       </div>
+      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+        Read-only view: admin-side create/revoke is gated until backend
+        adds GET /api/admin/apikeys and DELETE /api/admin/apikeys/:id
+        (see docs/BACKEND_TODO.md).
+      </Typography.Text>
       <Card>
         {loading && apiKeys.length === 0 ? (
           <Skeleton active paragraph={{ rows: 4 }} />

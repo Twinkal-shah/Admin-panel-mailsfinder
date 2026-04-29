@@ -4,6 +4,21 @@ This file tracks endpoints / fields the admin panel needs but that don't exist
 yet on `server.mailsfinder.com`. Each item is annotated with the calling
 codepath so a backend engineer can pick it up.
 
+## Admin API key management
+
+- **Need:**
+  - `GET /api/admin/apikeys` — list all keys with the owning user's id
+    and email so admins can audit cross-user usage.
+  - `DELETE /api/admin/apikeys/:id` — revoke any key, regardless of
+    owner.
+- **Why:** the user-facing frontend manages each user's own keys, but
+  the admin panel can't currently do anything cross-user. Today the
+  ApiKeys page reads from the dashboard bootstrap (read-only) and the
+  Create/Revoke buttons are disabled with a tooltip pointing here.
+- **Frontend caller:** `src/pages/ApiKeys.tsx`. The
+  `ADMIN_KEY_MGMT_ENABLED` flag in that file is the kill switch — flip
+  it on once the endpoints exist and the buttons re-enable.
+
 ## Content publish toggle
 
 - The Content update schema currently has `additionalProperties: false`
