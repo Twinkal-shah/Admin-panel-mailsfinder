@@ -57,7 +57,13 @@ export default function CMSLite() {
     })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const body = await res.json()
-    const source = Array.isArray(body) ? body : Array.isArray(body?.contents) ? body.contents : []
+    const source = Array.isArray(body)
+      ? body
+      : Array.isArray(body?.data)
+      ? body.data
+      : Array.isArray(body?.contents)
+      ? body.contents
+      : []
     setAll({ contents: source.map(mapContent) })
   }
 
