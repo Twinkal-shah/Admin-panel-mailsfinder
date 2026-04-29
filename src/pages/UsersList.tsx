@@ -85,7 +85,15 @@ export default function UsersList() {
             credits_verify,
             subscription_status,
             email_verified: !!u.email_verified,
-            admin_notes: u.admin_notes ?? undefined
+            admin_notes: u.admin_notes ?? undefined,
+            monthly_balance: u.monthly_balance,
+            lifetime_balance: u.lifetime_balance,
+            payg_balance: u.payg_balance,
+            free_daily_balance: u.free_daily_balance,
+            billing_cycle: u.billing_cycle,
+            cycle_end_date: u.cycle_end_date,
+            lemonsqueezy_customer_id: u.lemonsqueezy_customer_id,
+            lemonsqueezy_portal_url: u.lemonsqueezy_portal_url
           }
         })
         setAll({ users: mapped })
@@ -214,7 +222,26 @@ export default function UsersList() {
       key: 'plan',
       render: (plan) => <PlanBadge plan={plan} />
     },
-    { title: 'Credits (total)', dataIndex: 'credits_total', key: 'credits_total' },
+    {
+      title: 'Total credits',
+      key: 'total_credits',
+      render: (_, u) => {
+        const m = Number(u.monthly_balance ?? 0)
+        const l = Number(u.lifetime_balance ?? 0)
+        const p = Number(u.payg_balance ?? 0)
+        const f = Number(u.free_daily_balance ?? 0)
+        const sum = m + l + p + f
+        if (
+          u.monthly_balance == null &&
+          u.lifetime_balance == null &&
+          u.payg_balance == null &&
+          u.free_daily_balance == null
+        ) {
+          return Number(u.credits_find ?? 0) + Number(u.credits_verify ?? 0)
+        }
+        return sum
+      }
+    },
     { title: 'Credits find', dataIndex: 'credits_find', key: 'credits_find' },
     { title: 'Credits verify', dataIndex: 'credits_verify', key: 'credits_verify' },
     {
@@ -397,7 +424,15 @@ export default function UsersList() {
             credits_verify,
             subscription_status: plan === 'free' ? 'none' : 'active',
             email_verified: !!u.email_verified,
-            admin_notes: u.admin_notes ?? undefined
+            admin_notes: u.admin_notes ?? undefined,
+            monthly_balance: u.monthly_balance,
+            lifetime_balance: u.lifetime_balance,
+            payg_balance: u.payg_balance,
+            free_daily_balance: u.free_daily_balance,
+            billing_cycle: u.billing_cycle,
+            cycle_end_date: u.cycle_end_date,
+            lemonsqueezy_customer_id: u.lemonsqueezy_customer_id,
+            lemonsqueezy_portal_url: u.lemonsqueezy_portal_url
           }
           setAll({
             users: users.map(orig => (orig.id === updated.id ? updated : orig))

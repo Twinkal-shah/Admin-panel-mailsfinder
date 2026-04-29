@@ -204,6 +204,38 @@ export default function UserDetail() {
         </Col>
       </Row>
 
+      <Card title="Credit balances">
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+          {([
+            { label: 'free_daily', value: user.free_daily_balance, color: '#94A3B8' },
+            { label: 'monthly', value: user.monthly_balance, color: '#3B82F6' },
+            { label: 'lifetime', value: user.lifetime_balance, color: '#F59E0B' },
+            { label: 'payg', value: user.payg_balance, color: '#8B5CF6' }
+          ] as const).map(b => (
+            <Tag
+              key={b.label}
+              style={{
+                borderRadius: 999,
+                padding: '6px 14px',
+                fontSize: 13,
+                background: `${b.color}1F`,
+                color: b.color,
+                border: `1.5px solid ${b.color}`
+              }}
+            >
+              {b.label}: {b.value ?? 0}
+            </Tag>
+          ))}
+        </div>
+        {user.subscription_status && (
+          <Typography.Paragraph type="secondary" style={{ marginTop: 12, marginBottom: 0 }}>
+            Subscription: {user.subscription_status}
+            {user.billing_cycle ? ` • ${user.billing_cycle}` : ''}
+            {user.cycle_end_date ? ` • renews ${dayjs(user.cycle_end_date).format('YYYY-MM-DD')}` : ''}
+          </Typography.Paragraph>
+        )}
+      </Card>
+
       <Row gutter={16}>
         <Col xs={24} md={12}>
           <Card title="API Keys">

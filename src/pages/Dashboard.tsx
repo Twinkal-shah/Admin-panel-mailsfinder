@@ -132,7 +132,15 @@ export default function Dashboard() {
                   credits_verify,
                   subscription_status,
                   email_verified: !!u.email_verified,
-                  admin_notes: u.admin_notes ?? undefined
+                  admin_notes: u.admin_notes ?? undefined,
+                  monthly_balance: u.monthly_balance,
+                  lifetime_balance: u.lifetime_balance,
+                  payg_balance: u.payg_balance,
+                  free_daily_balance: u.free_daily_balance,
+                  billing_cycle: u.billing_cycle,
+                  cycle_end_date: u.cycle_end_date,
+                  lemonsqueezy_customer_id: u.lemonsqueezy_customer_id,
+                  lemonsqueezy_portal_url: u.lemonsqueezy_portal_url
                 }
               })
             : []
