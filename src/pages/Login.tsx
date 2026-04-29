@@ -45,7 +45,7 @@ export default function Login() {
       const adminData = body.data?.admin
       const admin = {
         id: String(adminData?._id ?? adminData?.id ?? 'admin-1'),
-        name: adminData?.full_name ?? 'Admin',
+        name: adminData?.name ?? adminData?.full_name ?? 'Admin',
         email: adminData?.email ?? email,
         role: (adminData?.role ?? 'superadmin') as Role
       }
@@ -65,7 +65,7 @@ export default function Login() {
           Admin access required (JWT/session).
         </Typography.Paragraph>
         {error && <Alert type="error" message={error} style={{ marginBottom: 12 }} />}
-        <Form layout="vertical" onFinish={onFinish} initialValues={{ email: 'admin@test.com' }}>
+        <Form layout="vertical" onFinish={onFinish} initialValues={{}}>
           <Form.Item label="Email" name="email" rules={[{ required: true }]}>
             <Input placeholder="admin@test.com" />
           </Form.Item>

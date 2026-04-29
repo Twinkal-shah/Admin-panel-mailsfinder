@@ -4,7 +4,10 @@ import dayjs from 'dayjs'
 import { ApiKey, AuditRow, ContentItem, Purchase, User } from '../types/types'
 import { encrypt, toKeyPrefix } from '../utils/encrypt'
 
-const ENCRYPTION_SECRET = 'demo-secret'
+// NOTE: client-side encryption can only obscure, not protect — anyone with
+// devtools can read this. Real protection must happen server-side. Track in
+// docs/BACKEND_TODO.md.
+const ENCRYPTION_SECRET = import.meta.env.VITE_ADMIN_KEY_ENCRYPTION_SECRET ?? ''
 
 interface DataState {
   users: User[]
