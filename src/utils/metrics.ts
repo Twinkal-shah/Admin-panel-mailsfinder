@@ -23,7 +23,7 @@ export function activeSubscriptions(users: User[], range?: DateRange): number {
 
 export function totalCreditsUsed(users: User[], range?: DateRange): number {
   const set = range ? users.filter(u => inRange(u.createdAt, range)) : users
-  return set.reduce((acc, u) => acc + (u.credits_find + u.credits_verify), 0)
+  return set.reduce((acc, u) => acc + Number(u.available_credits ?? 0), 0)
 }
 
 export function totalRevenue(purchases: Purchase[], range?: DateRange): number {

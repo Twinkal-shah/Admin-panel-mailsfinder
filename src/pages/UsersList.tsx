@@ -41,7 +41,6 @@ export default function UsersList() {
   const [addCreditsOpen, setAddCreditsOpen] = useState(false)
   const [addCreditsAmount, setAddCreditsAmount] = useState<number>(100)
   const [addCreditsReason, setAddCreditsReason] = useState<string>('')
-  const [addCreditsBucket, setAddCreditsBucket] = useState<'find' | 'verify'>('find')
   const [editOpen, setEditOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [editForm] = Form.useForm()
@@ -151,32 +150,28 @@ export default function UsersList() {
     { title: 'Email', dataIndex: 'email', key: 'email' },
     {
       title: 'Plan',
-      dataIndex: 'plan',
       key: 'plan',
-      render: (plan) => <PlanBadge plan={plan} />
-    },
-    {
-      title: 'Total credits',
-      key: 'total_credits',
       render: (_, u) => {
-        const m = Number(u.monthly_balance ?? 0)
-        const l = Number(u.lifetime_balance ?? 0)
-        const p = Number(u.payg_balance ?? 0)
-        const f = Number(u.free_daily_balance ?? 0)
-        const sum = m + l + p + f
-        if (
-          u.monthly_balance == null &&
-          u.lifetime_balance == null &&
-          u.payg_balance == null &&
-          u.free_daily_balance == null
-        ) {
-          return Number(u.credits_find ?? 0) + Number(u.credits_verify ?? 0)
-        }
-        return sum
+        const status = u.subscription?.status ?? u.subscription_status
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <PlanBadge plan={u.plan} />
+            {status && status !== 'none' && (
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                {u.plan} · {status}
+              </Typography.Text>
+            )}
+          </div>
+        )
       }
     },
-    { title: 'Credits find', dataIndex: 'credits_find', key: 'credits_find' },
-    { title: 'Credits verify', dataIndex: 'credits_verify', key: 'credits_verify' },
+    {
+      title: 'Credits',
+      dataIndex: 'available_credits',
+      key: 'available_credits',
+      sorter: (a, b) => Number(a.available_credits ?? 0) - Number(b.available_credits ?? 0),
+      render: (_, u) => Number(u.available_credits ?? 0)
+    },
     {
       title: 'Subscription status',
       dataIndex: 'subscription_status',
@@ -252,7 +247,9 @@ export default function UsersList() {
         const payload = {
           userIds: selectedRowKeys.map(id => String(id)),
           delta: Number(addCreditsAmount),
-          bucket: addCreditsBucket,
+          // Backend translates any bucket value to payg_balance and keeps it
+          // for audit only. Hardcode 'find' for compat with the existing API.
+          bucket: 'find' as const,
           reason: addCreditsReason
         }
         const res = await axios.post(`${API_BASE_URL}/api/admin/userManagement/credits-adjust-bulk`, payload, {
@@ -289,9 +286,10 @@ export default function UsersList() {
     setEditingUser(user)
     editForm.setFieldsValue({
       plan: user.plan,
-      credits_total: user.credits_total,
-      credits_find: user.credits_find,
-      credits_verify: user.credits_verify
+      payg_balance: Number(user.payg_balance ?? user.balances?.payg?.balance ?? 0),
+      email_verified: !!user.email_verified,
+      country: user.country ?? '',
+      admin_notes: user.admin_notes ?? ''
     })
     setEditOpen(true)
   }
@@ -308,13 +306,24 @@ export default function UsersList() {
           patch.plan = nextPlan
         }
       }
-      const nextFind = Number(values.credits_find ?? editingUser.credits_find)
-      const nextVerify = Number(values.credits_verify ?? editingUser.credits_verify)
-      if (!Number.isNaN(nextFind) && nextFind !== editingUser.credits_find) {
-        patch.credits_find = Math.max(0, nextFind)
+      const currentPayg = Number(
+        editingUser.payg_balance ?? editingUser.balances?.payg?.balance ?? 0
+      )
+      const nextPayg = Number(values.payg_balance)
+      if (!Number.isNaN(nextPayg) && nextPayg !== currentPayg) {
+        // Backend translates `credits_find` input to "set payg_balance to N".
+        patch.credits_find = Math.max(0, nextPayg)
       }
-      if (!Number.isNaN(nextVerify) && nextVerify !== editingUser.credits_verify) {
-        patch.credits_verify = Math.max(0, nextVerify)
+      if (typeof values.email_verified === 'boolean' && values.email_verified !== editingUser.email_verified) {
+        patch.email_verified = values.email_verified
+      }
+      const nextCountry = String(values.country ?? '').trim()
+      if (nextCountry !== (editingUser.country ?? '')) {
+        patch.country = nextCountry
+      }
+      const nextNotes = String(values.admin_notes ?? '')
+      if (nextNotes !== (editingUser.admin_notes ?? '')) {
+        patch.admin_notes = nextNotes
       }
       if (Object.keys(patch).length === 0) {
         setEditOpen(false)
@@ -582,17 +591,7 @@ export default function UsersList() {
           Credit adjustments always require a reason and generate an audit row.
         </Typography.Paragraph>
         <Form layout="vertical">
-          <Form.Item label="Bucket" required>
-            <Select
-              value={addCreditsBucket}
-              onChange={(v) => setAddCreditsBucket(v)}
-              options={[
-                { value: 'find', label: 'Find' },
-                { value: 'verify', label: 'Verify' }
-              ]}
-            />
-          </Form.Item>
-          <Form.Item label="Credits to add" required>
+          <Form.Item label="Credits to add (negative subtracts)" required>
             <Input type="number" value={addCreditsAmount} onChange={(e) => setAddCreditsAmount(Number(e.target.value))} />
           </Form.Item>
           <Form.Item label="Reason" required>
@@ -610,7 +609,7 @@ export default function UsersList() {
         confirmLoading={editSaving}
       >
         <Form form={editForm} layout="vertical">
-          <Form.Item name="plan" label="Plan" rules={[{ required: true }]}> 
+          <Form.Item name="plan" label="Plan" rules={[{ required: true }]}>
             <Select
               options={PLAN_ORDER.map(p => ({
                 value: p,
@@ -618,14 +617,26 @@ export default function UsersList() {
               }))}
             />
           </Form.Item>
-          <Form.Item name="credits_total" label="Available Credits" rules={[{ required: true }]}> 
-            <Input type="number" />
+          <Form.Item
+            name="payg_balance"
+            label="PAYG credits"
+            tooltip="Sets the user's payg_balance bucket. Other buckets are managed by billing."
+          >
+            <Input type="number" min={0} />
           </Form.Item>
-          <Form.Item name="credits_verify" label="Verification Credits" rules={[{ required: true }]}> 
-            <Input type="number" />
+          <Form.Item name="email_verified" label="Email verified">
+            <Select
+              options={[
+                { value: true, label: 'Yes' },
+                { value: false, label: 'No' }
+              ]}
+            />
           </Form.Item>
-          <Form.Item name="credits_find" label="Find Credits" rules={[{ required: true }]}> 
-            <Input type="number" />
+          <Form.Item name="country" label="Country">
+            <Input maxLength={2} placeholder="ISO-2 country code" />
+          </Form.Item>
+          <Form.Item name="admin_notes" label="Admin notes">
+            <Input.TextArea rows={3} />
           </Form.Item>
         </Form>
       </Modal>

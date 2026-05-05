@@ -25,18 +25,28 @@ interface DataState {
     audits?: AuditRow[]
   }) => void
 
-  addCredits: (userId: string, delta: number, adminId: string, reason: string) => void
+  adjustCredits: (userId: string, delta: number, adminId: string, reason: string) => void
+  bulkAdjustCredits: (userIds: string[], delta: number, adminId: string, reason: string) => void
   createApiKey: (payload: { userId?: string; rateLimitPerMinute: number }, adminId: string) => { fullKey: string; key: ApiKey }
   revokeApiKey: (keyId: string, adminId: string, reason?: string) => void
   updateApiKeyRateLimit: (keyId: string, rate: number) => void
   publishContent: (contentId: string, adminId: string, reason?: string) => void
   upsertContent: (content: Omit<ContentItem, 'id' | 'updatedAt' | 'published'> & Partial<Pick<ContentItem, 'id' | 'published'>>) => ContentItem
   updateUserNotes: (userId: string, notes: string) => void
-  updateUser: (userId: string, patch: { plan?: User['plan']; credits_total?: number; credits_find?: number; credits_verify?: number }) => void
+  updateUser: (
+    userId: string,
+    patch: {
+      plan?: User['plan']
+      email_verified?: boolean
+      country?: string
+      admin_notes?: string
+      payg_balance?: number
+    }
+  ) => void
   deleteUser: (userId: string) => void
 }
 
-export const useDataStore = create<DataState>((set, get) => ({
+export const useDataStore = create<DataState>((set) => ({
   users: [],
   purchases: [],
   apiKeys: [],
@@ -46,15 +56,24 @@ export const useDataStore = create<DataState>((set, get) => ({
     set({ users: [], purchases: [], apiKeys: [], contents: [], audits: [] })
   },
 
-  addCredits: (userId, delta, adminId, reason) => {
+  adjustCredits: (userId, delta, adminId, reason) => {
     set(state => {
       const users = state.users.map(u => {
         if (u.id !== userId) return u
-        const isFind = delta >= 0
-        const credits_find = u.credits_find + (isFind ? delta : 0)
-        const credits_verify = u.credits_verify + (!isFind ? Math.abs(delta) : 0)
-        const credits_total = credits_find + credits_verify
-        return { ...u, credits_find, credits_verify, credits_total }
+        const nextPayg = Math.max(0, Number(u.payg_balance ?? 0) + delta)
+        const nextAvailable = Math.max(0, Number(u.available_credits ?? 0) + delta)
+        return {
+          ...u,
+          payg_balance: nextPayg,
+          available_credits: nextAvailable,
+          credits_total: nextAvailable,
+          credits_find: nextAvailable,
+          credits_verify: nextAvailable,
+          balances: {
+            ...u.balances,
+            payg: { ...(u.balances?.payg ?? {}), balance: nextPayg }
+          }
+        }
       })
       const audits: AuditRow[] = [
         ...state.audits,
@@ -66,6 +85,42 @@ export const useDataStore = create<DataState>((set, get) => ({
           timestamp: dayjs().toISOString(),
           reason
         }
+      ]
+      return { users, audits }
+    })
+  },
+
+  bulkAdjustCredits: (userIds, delta, adminId, reason) => {
+    const ids = new Set(userIds)
+    set(state => {
+      const users = state.users.map(u => {
+        if (!ids.has(u.id)) return u
+        const nextPayg = Math.max(0, Number(u.payg_balance ?? 0) + delta)
+        const nextAvailable = Math.max(0, Number(u.available_credits ?? 0) + delta)
+        return {
+          ...u,
+          payg_balance: nextPayg,
+          available_credits: nextAvailable,
+          credits_total: nextAvailable,
+          credits_find: nextAvailable,
+          credits_verify: nextAvailable,
+          balances: {
+            ...u.balances,
+            payg: { ...(u.balances?.payg ?? {}), balance: nextPayg }
+          }
+        }
+      })
+      const ts = dayjs().toISOString()
+      const audits: AuditRow[] = [
+        ...state.audits,
+        ...userIds.map(targetId => ({
+          id: uuidv4(),
+          adminId,
+          action: 'credits.adjust' as const,
+          targetId,
+          timestamp: ts,
+          reason
+        }))
       ]
       return { users, audits }
     })
@@ -185,17 +240,34 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   updateUser: (userId, patch) => {
     set(state => ({
-      users: state.users.map(u => (
-        u.id === userId
-          ? {
-              ...u,
-              plan: patch.plan ?? u.plan,
-              credits_total: patch.credits_total ?? u.credits_total,
-              credits_find: patch.credits_find ?? u.credits_find,
-              credits_verify: patch.credits_verify ?? u.credits_verify
-            }
-          : u
-      ))
+      users: state.users.map(u => {
+        if (u.id !== userId) return u
+        const next: User = {
+          ...u,
+          plan: patch.plan ?? u.plan,
+          email_verified: patch.email_verified ?? u.email_verified,
+          country: patch.country ?? u.country,
+          admin_notes: patch.admin_notes ?? u.admin_notes
+        }
+        if (patch.payg_balance !== undefined) {
+          const nextPayg = Math.max(0, Number(patch.payg_balance))
+          const otherBuckets =
+            Number(u.monthly_balance ?? 0) +
+            Number(u.lifetime_balance ?? 0) +
+            Number(u.free_daily_balance ?? 0)
+          const nextAvailable = otherBuckets + nextPayg
+          next.payg_balance = nextPayg
+          next.available_credits = nextAvailable
+          next.credits_total = nextAvailable
+          next.credits_find = nextAvailable
+          next.credits_verify = nextAvailable
+          next.balances = {
+            ...u.balances,
+            payg: { ...(u.balances?.payg ?? {}), balance: nextPayg }
+          }
+        }
+        return next
+      })
     }))
   },
 

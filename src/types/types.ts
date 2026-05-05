@@ -19,9 +19,30 @@ export interface User {
   createdAt: string
   lastSeen?: string
   plan: Plan
+  // DEPRECATED — equals available_credits, do not sum
   credits_total: number
+  // DEPRECATED — equals available_credits, do not sum
   credits_find: number
+  // DEPRECATED — equals available_credits, do not sum
   credits_verify: number
+  available_credits?: number
+  balances?: {
+    monthly?: {
+      balance?: number
+      pool?: number
+      daily_used?: number
+      daily_cap?: number
+      cycle_end_date?: string | null
+      resets_at?: string
+    }
+    lifetime?: { balance?: number; pool?: number }
+    payg?: { balance?: number }
+    free?: { balance?: number; daily_cap?: number; resets_at?: string }
+  }
+  subscription?: { status?: string; subscriptionId?: string }
+  cycle_start_date?: string | null
+  cycle_end_date?: string | null
+  billing_cycle?: 'none' | 'monthly' | 'annual'
   subscription_status: SubscriptionStatus
   email_verified: boolean
   admin_notes?: string
@@ -29,8 +50,6 @@ export interface User {
   lifetime_balance?: number
   payg_balance?: number
   free_daily_balance?: number
-  billing_cycle?: string
-  cycle_end_date?: string
   lemonsqueezy_customer_id?: string
   lemonsqueezy_portal_url?: string
 }

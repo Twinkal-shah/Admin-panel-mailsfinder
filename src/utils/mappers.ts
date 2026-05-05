@@ -32,9 +32,53 @@ export function mapUser(raw: any): User {
       ? (subsRaw as User['subscription_status'])
       : 'none'
 
-  const credits_find = Number(raw.credits_find ?? 0)
-  const credits_verify = Number(raw.credits_verify ?? 0)
-  const credits_total = Number(raw.credits ?? credits_find + credits_verify)
+  const rawBalances = raw.balances ?? {}
+  const monthly_balance = Number(
+    rawBalances.monthly?.balance ?? raw.monthly_balance ?? 0
+  )
+  const lifetime_balance = Number(
+    rawBalances.lifetime?.balance ?? raw.lifetime_balance ?? 0
+  )
+  const payg_balance = Number(
+    rawBalances.payg?.balance ?? raw.payg_balance ?? 0
+  )
+  const free_daily_balance = Number(
+    rawBalances.free?.balance ?? raw.free_daily_balance ?? 0
+  )
+
+  // Prefer the unified available_credits when the backend provides it; fall
+  // back to summing the 4 bucket balances; only as a last resort use the
+  // legacy fields (which are now identical, so take max — never sum).
+  let available_credits: number
+  if (raw.available_credits != null) {
+    available_credits = Number(raw.available_credits)
+  } else if (
+    rawBalances.monthly != null ||
+    rawBalances.lifetime != null ||
+    rawBalances.payg != null ||
+    rawBalances.free != null ||
+    raw.monthly_balance != null ||
+    raw.lifetime_balance != null ||
+    raw.payg_balance != null ||
+    raw.free_daily_balance != null
+  ) {
+    available_credits = monthly_balance + lifetime_balance + payg_balance + free_daily_balance
+  } else {
+    available_credits = Math.max(
+      Number(raw.credits_find ?? 0),
+      Number(raw.credits_verify ?? 0),
+      Number(raw.credits ?? 0)
+    )
+  }
+
+  // Legacy mirrors — all equal available_credits per backend contract.
+  const credits_total = available_credits
+  const credits_find = available_credits
+  const credits_verify = available_credits
+
+  const billingRaw = String(raw.billing_cycle ?? 'none').toLowerCase()
+  const billing_cycle: User['billing_cycle'] =
+    billingRaw === 'monthly' || billingRaw === 'annual' ? (billingRaw as any) : 'none'
 
   return {
     id: String(raw._id ?? raw.id),
@@ -57,15 +101,46 @@ export function mapUser(raw: any): User {
     credits_total,
     credits_find,
     credits_verify,
+    available_credits,
+    balances: {
+      monthly: rawBalances.monthly
+        ? {
+            balance: rawBalances.monthly.balance,
+            pool: rawBalances.monthly.pool,
+            daily_used: rawBalances.monthly.daily_used,
+            daily_cap: rawBalances.monthly.daily_cap,
+            cycle_end_date: rawBalances.monthly.cycle_end_date ?? null,
+            resets_at: rawBalances.monthly.resets_at
+          }
+        : undefined,
+      lifetime: rawBalances.lifetime
+        ? { balance: rawBalances.lifetime.balance, pool: rawBalances.lifetime.pool }
+        : undefined,
+      payg: rawBalances.payg ? { balance: rawBalances.payg.balance } : undefined,
+      free: rawBalances.free
+        ? {
+            balance: rawBalances.free.balance,
+            daily_cap: rawBalances.free.daily_cap,
+            resets_at: rawBalances.free.resets_at
+          }
+        : undefined
+    },
+    subscription: raw.subscription
+      ? {
+          status: raw.subscription.status,
+          subscriptionId: raw.subscription.subscriptionId
+        }
+      : undefined,
+    cycle_start_date: raw.cycle_start_date ?? null,
+    cycle_end_date: raw.cycle_end_date ?? rawBalances.monthly?.cycle_end_date ?? null,
+    billing_cycle,
     subscription_status,
     email_verified: !!raw.email_verified,
     admin_notes: raw.admin_notes ?? undefined,
-    monthly_balance: raw.monthly_balance,
-    lifetime_balance: raw.lifetime_balance,
-    payg_balance: raw.payg_balance,
-    free_daily_balance: raw.free_daily_balance,
-    billing_cycle: raw.billing_cycle,
-    cycle_end_date: raw.cycle_end_date,
+    monthly_balance,
+    lifetime_balance,
+    payg_balance,
+    free_daily_balance,
     lemonsqueezy_customer_id: raw.lemonsqueezy_customer_id,
     lemonsqueezy_portal_url: raw.lemonsqueezy_portal_url
   }
