@@ -286,7 +286,7 @@ export default function UsersList() {
     setEditingUser(user)
     editForm.setFieldsValue({
       plan: user.plan,
-      payg_balance: Number(user.payg_balance ?? user.balances?.payg?.balance ?? 0),
+      payg_balance: Number(user.balances?.payg ?? user.payg_balance ?? 0),
       email_verified: !!user.email_verified,
       country: user.country ?? '',
       admin_notes: user.admin_notes ?? ''
@@ -307,7 +307,7 @@ export default function UsersList() {
         }
       }
       const currentPayg = Number(
-        editingUser.payg_balance ?? editingUser.balances?.payg?.balance ?? 0
+        editingUser.balances?.payg ?? editingUser.payg_balance ?? 0
       )
       const nextPayg = Number(values.payg_balance)
       if (!Number.isNaN(nextPayg) && nextPayg !== currentPayg) {

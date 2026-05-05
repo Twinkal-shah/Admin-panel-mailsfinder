@@ -1,25 +1,34 @@
 import { useParams } from 'react-router-dom'
 import { useDataStore } from '../store/data'
 import { useMemo, useState } from 'react'
-import { Card, Descriptions, Typography, Row, Col, Button, Modal, Form, Input, Table, Tag, message } from 'antd'
+import { Card, Descriptions, Typography, Row, Col, Button, Modal, Form, Input, InputNumber, Progress, Table, Tag, message } from 'antd'
 import dayjs from 'dayjs'
 import { ApiKey, PLAN_DISPLAY_NAME, Purchase } from '../types/types'
 import { useAuthStore } from '../store/auth'
 import { hasScope } from '../store/rbac'
 import { mapUser } from '../utils/mappers'
 
+// Spec: monthly users have a 10k/day cap on the monthly bucket.
+const MONTHLY_DAILY_CAP = 10000
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8000' : 'https://server.mailsfinder.com')
 
 export default function UserDetail() {
   const { id } = useParams<{ id: string }>()
-  const { users, purchases, apiKeys, adjustCredits, revokeApiKey, createApiKey, updateUserNotes, setAll, updateUser } = useDataStore()
+  const { users, purchases, apiKeys, adjustCredits, revokeApiKey, createApiKey, updateUserNotes, replaceUser, updateUser } = useDataStore()
   const { admin, token } = useAuthStore()
   const user = useMemo(() => users.find(u => u.id === id), [users, id])
   const userPurchases = useMemo(() => purchases.filter(p => p.userId === id), [purchases, id])
   const userKeys = useMemo(() => apiKeys.filter(k => k.userId === id), [apiKeys, id])
 
   const [creditsModal, setCreditsModal] = useState<{ open: boolean; delta: number; reason: string }>({ open: false, delta: 0, reason: '' })
-  const [planActionLoading, setPlanActionLoading] = useState<'monthly' | 'free' | null>(null)
+  const [planActionLoading, setPlanActionLoading] = useState<'monthly' | 'lifetime' | 'free' | null>(null)
+  const [grantMonthly, setGrantMonthly] = useState<{ open: boolean; credits: number; cycleDays: number; reason: string }>(
+    { open: false, credits: 300000, cycleDays: 30, reason: '' }
+  )
+  const [grantLifetime, setGrantLifetime] = useState<{ open: boolean; credits: number; reason: string }>(
+    { open: false, credits: 2000000, reason: '' }
+  )
   const [createKeyOpen, setCreateKeyOpen] = useState(false)
   const [showFullKey, setShowFullKey] = useState<string | null>(null)
   const [rateLimit, setRateLimit] = useState<number>(60)
@@ -72,44 +81,63 @@ export default function UserDetail() {
     }
   }
 
-  async function promoteToMonthly() {
-    if (!user) return
-    setPlanActionLoading('monthly')
+  async function submitGrantPlan(
+    body: { plan: 'monthly' | 'lifetime'; credits: number; reason: string; cycleDays?: number }
+  ): Promise<boolean> {
+    if (!user) return false
+    if (!Number.isFinite(body.credits) || body.credits <= 0) {
+      message.error('Credits must be a positive number')
+      return false
+    }
+    if (!body.reason.trim()) {
+      message.error('Reason is required')
+      return false
+    }
+    setPlanActionLoading(body.plan)
     try {
-      const planRes = await fetch(`${API_BASE_URL}/api/admin/userManagement/users/${user.id}`, {
-        method: 'PATCH',
-        headers: authHeaders(),
-        body: JSON.stringify({ plan: 'monthly' })
-      })
-      const planBody = await planRes.json().catch(() => ({} as any))
-      if (!planRes.ok || planBody?.success === false) {
-        message.error(planBody?.message || `HTTP ${planRes.status}`)
-        return
-      }
-      const creditRes = await fetch(`${API_BASE_URL}/api/admin/userManagement/users/${user.id}/credits-adjust`, {
+      const res = await fetch(`${API_BASE_URL}/api/admin/userManagement/users/${user.id}/grant-plan`, {
         method: 'POST',
         headers: authHeaders(),
-        body: JSON.stringify({ delta: 300000, bucket: 'find', reason: 'manual promotion' })
+        body: JSON.stringify(body)
       })
-      const creditBody = await creditRes.json().catch(() => ({} as any))
-      if (!creditRes.ok || creditBody?.success === false) {
-        message.error(creditBody?.message || `HTTP ${creditRes.status}`)
-        return
+      const json = await res.json().catch(() => ({} as any))
+      if (!res.ok || json?.success === false) {
+        message.error(json?.message || `HTTP ${res.status}`)
+        return false
       }
-      const fresh = planBody?.data ?? planBody
+      const fresh = json?.data ?? json
       if (fresh && (fresh._id || fresh.id)) {
-        const mapped = mapUser(fresh)
-        setAll({ users: users.map(u => (u.id === mapped.id ? mapped : u)) })
+        replaceUser(mapUser(fresh), admin.id, { action: 'plan.grant', reason: body.reason })
       } else {
-        updateUser(user.id, { plan: 'monthly' })
+        updateUser(user.id, { plan: body.plan })
       }
-      adjustCredits(user.id, 300000, admin.id, 'manual promotion')
-      message.success('Promoted to Monthly')
+      message.success(body.plan === 'monthly' ? 'Promoted to Monthly' : 'Promoted to Lifetime')
+      return true
     } catch (e: any) {
       message.error(e?.message || 'Request failed')
+      return false
     } finally {
       setPlanActionLoading(null)
     }
+  }
+
+  async function confirmGrantMonthly() {
+    const ok = await submitGrantPlan({
+      plan: 'monthly',
+      credits: Number(grantMonthly.credits),
+      cycleDays: Number(grantMonthly.cycleDays) || 30,
+      reason: grantMonthly.reason
+    })
+    if (ok) setGrantMonthly({ open: false, credits: 300000, cycleDays: 30, reason: '' })
+  }
+
+  async function confirmGrantLifetime() {
+    const ok = await submitGrantPlan({
+      plan: 'lifetime',
+      credits: Number(grantLifetime.credits),
+      reason: grantLifetime.reason
+    })
+    if (ok) setGrantLifetime({ open: false, credits: 2000000, reason: '' })
   }
 
   async function resetToFree() {
@@ -128,8 +156,7 @@ export default function UserDetail() {
       }
       const fresh = body?.data ?? body
       if (fresh && (fresh._id || fresh.id)) {
-        const mapped = mapUser(fresh)
-        setAll({ users: users.map(u => (u.id === mapped.id ? mapped : u)) })
+        replaceUser(mapUser(fresh))
       } else {
         updateUser(user.id, { plan: 'free' })
       }
@@ -295,20 +322,34 @@ export default function UserDetail() {
             </>
           )}
         </Descriptions>
+        {user.plan === 'monthly' && (
+          <div style={{ marginTop: 12 }}>
+            <Typography.Text type="secondary">
+              Today's daily usage: {Number(user.monthly_daily_used ?? 0).toLocaleString()} / {MONTHLY_DAILY_CAP.toLocaleString()}
+            </Typography.Text>
+            <Progress
+              percent={Math.min(100, (Number(user.monthly_daily_used ?? 0) / MONTHLY_DAILY_CAP) * 100)}
+              showInfo={false}
+              size="small"
+              style={{ marginTop: 4 }}
+            />
+          </div>
+        )}
         <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <Button
             type="primary"
             disabled={!hasScope(admin.role, 'users.write')}
             loading={planActionLoading === 'monthly'}
-            onClick={() => Modal.confirm({
-              title: 'Promote to Monthly',
-              content: 'Set plan to Monthly and add 300,000 PAYG credits (manual promotion). Cycle dates are NOT set — flag a backend endpoint if proper monthly cycle bookkeeping is required.',
-              okText: 'Promote',
-              className: 'mf-modal',
-              onOk: promoteToMonthly
-            })}
+            onClick={() => setGrantMonthly({ open: true, credits: 300000, cycleDays: 30, reason: '' })}
           >
-            Promote to Monthly (300k credits, 30-day cycle)
+            Promote to Monthly
+          </Button>
+          <Button
+            disabled={!hasScope(admin.role, 'users.write')}
+            loading={planActionLoading === 'lifetime'}
+            onClick={() => setGrantLifetime({ open: true, credits: 2000000, reason: '' })}
+          >
+            Promote to Lifetime
           </Button>
           <Button
             danger
@@ -316,7 +357,7 @@ export default function UserDetail() {
             loading={planActionLoading === 'free'}
             onClick={() => Modal.confirm({
               title: 'Reset to Free',
-              content: 'Set this user back to the Free plan. Existing bucket balances are preserved.',
+              content: 'Set this user back to the Free plan. Existing bucket balances are NOT cleared (intentional). File a backend ticket if you need a destructive reset.',
               okText: 'Reset',
               okButtonProps: { danger: true },
               className: 'modal-danger mf-modal',
@@ -326,36 +367,41 @@ export default function UserDetail() {
             Reset to Free
           </Button>
         </div>
-        <Typography.Paragraph type="secondary" style={{ marginTop: 12, marginBottom: 0, fontSize: 12 }}>
-          Note: backend has no admin endpoint for setting monthly_balance directly or seeding cycle dates. Promote sets plan + a PAYG credit grant; ask backend to add a dedicated endpoint if you need true monthly bookkeeping.
-        </Typography.Paragraph>
       </Card>
 
       <Card title="Credit balances">
         <Typography.Title level={4} style={{ marginTop: 0, marginBottom: 12 }}>
-          Total: {Number(user.available_credits ?? 0).toLocaleString()}
+          Total: {Number(user.available_credits ?? 0).toLocaleString()}{' '}
+          <Typography.Text type="secondary" style={{ fontSize: 14, fontWeight: 400 }}>
+            (Available Credits)
+          </Typography.Text>
         </Typography.Title>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
           {([
-            { label: 'free_daily', value: user.balances?.free?.balance ?? user.free_daily_balance, color: '#94A3B8' },
-            { label: 'monthly', value: user.balances?.monthly?.balance ?? user.monthly_balance, color: '#3B82F6' },
-            { label: 'lifetime', value: user.balances?.lifetime?.balance ?? user.lifetime_balance, color: '#F59E0B' },
-            { label: 'payg', value: user.balances?.payg?.balance ?? user.payg_balance, color: '#8B5CF6' }
-          ] as const).map(b => (
-            <Tag
-              key={b.label}
-              style={{
-                borderRadius: 999,
-                padding: '6px 14px',
-                fontSize: 13,
-                background: `${b.color}1F`,
-                color: b.color,
-                border: `1.5px solid ${b.color}`
-              }}
-            >
-              {b.label}: {Number(b.value ?? 0).toLocaleString()}
-            </Tag>
-          ))}
+            { label: 'free_daily', value: user.balances?.free ?? user.free_daily_balance, pool: undefined, color: '#94A3B8' },
+            { label: 'monthly', value: user.balances?.monthly ?? user.monthly_balance, pool: user.monthly_pool, color: '#3B82F6' },
+            { label: 'lifetime', value: user.balances?.lifetime ?? user.lifetime_balance, pool: user.lifetime_pool, color: '#F59E0B' },
+            { label: 'payg', value: user.balances?.payg ?? user.payg_balance, pool: undefined, color: '#8B5CF6' }
+          ] as const).map(b => {
+            const balance = Number(b.value ?? 0)
+            const pool = b.pool != null ? Number(b.pool) : undefined
+            return (
+              <Tag
+                key={b.label}
+                style={{
+                  borderRadius: 999,
+                  padding: '6px 14px',
+                  fontSize: 13,
+                  background: `${b.color}1F`,
+                  color: b.color,
+                  border: `1.5px solid ${b.color}`
+                }}
+              >
+                {b.label}: {balance.toLocaleString()}
+                {pool != null && pool > 0 ? ` / ${pool.toLocaleString()}` : ''}
+              </Tag>
+            )
+          })}
         </div>
       </Card>
 
@@ -407,6 +453,77 @@ export default function UserDetail() {
           </Button>
         </div>
       </Card>
+
+      <Modal
+        title="Promote to Monthly"
+        open={grantMonthly.open}
+        onOk={confirmGrantMonthly}
+        onCancel={() => setGrantMonthly(s => ({ ...s, open: false }))}
+        okText="Promote"
+        okButtonProps={{ disabled: !grantMonthly.reason || !grantMonthly.credits }}
+        className="mf-modal"
+        confirmLoading={planActionLoading === 'monthly'}
+      >
+        <Typography.Paragraph type="secondary" style={{ marginTop: 0 }}>
+          Atomically sets plan, monthly_balance, monthly_pool, and cycle dates via the
+          backend grant-plan endpoint. Does not touch payg or free buckets.
+        </Typography.Paragraph>
+        <Form layout="vertical">
+          <Form.Item label="Credits" required>
+            <InputNumber
+              style={{ width: '100%' }}
+              min={1}
+              value={grantMonthly.credits}
+              onChange={(v) => setGrantMonthly(s => ({ ...s, credits: Number(v ?? 0) }))}
+            />
+          </Form.Item>
+          <Form.Item label="Cycle days" required>
+            <InputNumber
+              style={{ width: '100%' }}
+              min={1}
+              value={grantMonthly.cycleDays}
+              onChange={(v) => setGrantMonthly(s => ({ ...s, cycleDays: Number(v ?? 30) }))}
+            />
+          </Form.Item>
+          <Form.Item label="Reason" required>
+            <Input.TextArea
+              value={grantMonthly.reason}
+              onChange={(e) => setGrantMonthly(s => ({ ...s, reason: e.target.value }))}
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title="Promote to Lifetime"
+        open={grantLifetime.open}
+        onOk={confirmGrantLifetime}
+        onCancel={() => setGrantLifetime(s => ({ ...s, open: false }))}
+        okText="Promote"
+        okButtonProps={{ disabled: !grantLifetime.reason || !grantLifetime.credits }}
+        className="mf-modal"
+        confirmLoading={planActionLoading === 'lifetime'}
+      >
+        <Typography.Paragraph type="secondary" style={{ marginTop: 0 }}>
+          Atomically sets plan, lifetime_balance, and lifetime_pool. No cycle dates.
+        </Typography.Paragraph>
+        <Form layout="vertical">
+          <Form.Item label="Credits" required>
+            <InputNumber
+              style={{ width: '100%' }}
+              min={1}
+              value={grantLifetime.credits}
+              onChange={(v) => setGrantLifetime(s => ({ ...s, credits: Number(v ?? 0) }))}
+            />
+          </Form.Item>
+          <Form.Item label="Reason" required>
+            <Input.TextArea
+              value={grantLifetime.reason}
+              onChange={(e) => setGrantLifetime(s => ({ ...s, reason: e.target.value }))}
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
 
       <Modal
         title="Credit adjustment"

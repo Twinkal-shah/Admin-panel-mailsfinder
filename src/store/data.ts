@@ -43,6 +43,7 @@ interface DataState {
       payg_balance?: number
     }
   ) => void
+  replaceUser: (user: User, adminId?: string, audit?: { action: AuditRow['action']; reason?: string }) => void
   deleteUser: (userId: string) => void
 }
 
@@ -69,10 +70,7 @@ export const useDataStore = create<DataState>((set) => ({
           credits_total: nextAvailable,
           credits_find: nextAvailable,
           credits_verify: nextAvailable,
-          balances: {
-            ...u.balances,
-            payg: { ...(u.balances?.payg ?? {}), balance: nextPayg }
-          }
+          balances: { ...u.balances, payg: nextPayg }
         }
       })
       const audits: AuditRow[] = [
@@ -104,10 +102,7 @@ export const useDataStore = create<DataState>((set) => ({
           credits_total: nextAvailable,
           credits_find: nextAvailable,
           credits_verify: nextAvailable,
-          balances: {
-            ...u.balances,
-            payg: { ...(u.balances?.payg ?? {}), balance: nextPayg }
-          }
+          balances: { ...u.balances, payg: nextPayg }
         }
       })
       const ts = dayjs().toISOString()
@@ -121,6 +116,25 @@ export const useDataStore = create<DataState>((set) => ({
           timestamp: ts,
           reason
         }))
+      ]
+      return { users, audits }
+    })
+  },
+
+  replaceUser: (user, adminId, audit) => {
+    set(state => {
+      const users = state.users.map(u => (u.id === user.id ? user : u))
+      if (!audit) return { users }
+      const audits: AuditRow[] = [
+        ...state.audits,
+        {
+          id: uuidv4(),
+          adminId: adminId ?? '',
+          action: audit.action,
+          targetId: user.id,
+          timestamp: dayjs().toISOString(),
+          reason: audit.reason
+        }
       ]
       return { users, audits }
     })
@@ -261,10 +275,7 @@ export const useDataStore = create<DataState>((set) => ({
           next.credits_total = nextAvailable
           next.credits_find = nextAvailable
           next.credits_verify = nextAvailable
-          next.balances = {
-            ...u.balances,
-            payg: { ...(u.balances?.payg ?? {}), balance: nextPayg }
-          }
+          next.balances = { ...u.balances, payg: nextPayg }
         }
         return next
       })

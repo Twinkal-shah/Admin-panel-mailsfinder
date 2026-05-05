@@ -27,19 +27,15 @@ export interface User {
   credits_verify: number
   available_credits?: number
   balances?: {
-    monthly?: {
-      balance?: number
-      pool?: number
-      daily_used?: number
-      daily_cap?: number
-      cycle_end_date?: string | null
-      resets_at?: string
-    }
-    lifetime?: { balance?: number; pool?: number }
-    payg?: { balance?: number }
-    free?: { balance?: number; daily_cap?: number; resets_at?: string }
+    monthly?: number
+    lifetime?: number
+    payg?: number
+    free?: number
   }
-  subscription?: { status?: string; subscriptionId?: string }
+  monthly_pool?: number
+  lifetime_pool?: number
+  monthly_daily_used?: number
+  subscription?: { status?: string; subscriptionId?: string | null }
   cycle_start_date?: string | null
   cycle_end_date?: string | null
   billing_cycle?: 'none' | 'monthly' | 'annual'
@@ -89,7 +85,7 @@ export interface ContentItem {
 export interface AuditRow {
   id: string
   adminId: string
-  action: 'credits.adjust' | 'apikey.create' | 'apikey.revoke' | 'content.publish'
+  action: 'credits.adjust' | 'plan.grant' | 'apikey.create' | 'apikey.revoke' | 'content.publish'
   targetId: string
   timestamp: string
   reason?: string
