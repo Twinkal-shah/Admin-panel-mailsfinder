@@ -3,7 +3,7 @@ import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
 dayjs.extend(utc)
 
-export type DatePreset = 'Today' | '7d' | '30d' | 'This month' | 'Custom range'
+export type DatePreset = 'Today' | 'Yesterday' | 'Last 7 Days' | 'Last 30 Days' | 'Custom Range'
 export interface DateRange {
   from: string
   to: string
@@ -16,26 +16,28 @@ export default function DateFilter(props: {
 }) {
   const { RangePicker } = DatePicker
 
-  const presets: DatePreset[] = ['Today', '7d', '30d', 'This month', 'Custom range']
+  const presets: DatePreset[] = ['Today', 'Yesterday', 'Last 7 Days', 'Last 30 Days', 'Custom Range']
 
   function computeRange(preset: DatePreset): DateRange {
     const now = dayjs.utc()
     switch (preset) {
       case 'Today':
         return { from: now.startOf('day').toISOString(), to: now.endOf('day').toISOString(), preset }
-      case '7d':
-        return { from: now.subtract(7, 'day').startOf('day').toISOString(), to: now.endOf('day').toISOString(), preset }
-      case '30d':
-        return { from: now.subtract(30, 'day').startOf('day').toISOString(), to: now.endOf('day').toISOString(), preset }
-      case 'This month':
-        return { from: now.startOf('month').toISOString(), to: now.endOf('month').toISOString(), preset }
+      case 'Yesterday': {
+        const yesterday = now.subtract(1, 'day')
+        return { from: yesterday.startOf('day').toISOString(), to: yesterday.endOf('day').toISOString(), preset }
+      }
+      case 'Last 7 Days':
+        return { from: now.subtract(6, 'day').startOf('day').toISOString(), to: now.endOf('day').toISOString(), preset }
+      case 'Last 30 Days':
+        return { from: now.subtract(29, 'day').startOf('day').toISOString(), to: now.endOf('day').toISOString(), preset }
       default:
         return props.value
     }
   }
 
   function onPresetChange(val: DatePreset) {
-    if (val === 'Custom range') {
+    if (val === 'Custom Range') {
       props.onChange({ ...props.value, preset: val })
     } else {
       props.onChange(computeRange(val))
@@ -51,7 +53,7 @@ export default function DateFilter(props: {
     props.onChange({
       from: fromIso,
       to: toIso,
-      preset: 'Custom range'
+      preset: 'Custom Range'
     })
   }
 

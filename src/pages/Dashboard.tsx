@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Card, Typography, Row, Col, List, Tag, Skeleton, Result, theme } from 'antd'
+import { Card, Typography, Row, Col, List, Table, Tag, Skeleton, Result, theme } from 'antd'
 import {
   ResponsiveContainer,
   BarChart,
@@ -44,6 +44,21 @@ function KPI({ title, value, suffix, delta }: { title: string; value: number | s
   )
 }
 
+type DashboardUserCreditUsage = {
+  userId: string
+  fullName: string
+  email: string
+  plan: Plan
+  creditsUsedInRange: number
+  totalCreditsUsed: number
+  lastUsedAt: string | null
+}
+
+function formatRangeLabel(range: DateRange & { preset: DatePreset }) {
+  if (range.preset !== 'Custom Range') return range.preset
+  return `${dayjs.utc(range.from).format('YYYY-MM-DD')} to ${dayjs.utc(range.to).format('YYYY-MM-DD')}`
+}
+
 export default function Dashboard() {
   const { setAll } = useDataStore()
   const { token } = useAuthStore()
@@ -53,9 +68,10 @@ export default function Dashboard() {
   const isDarkMode = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'dark'
   dayjs.extend(utc)
   const [range, setRange] = useState<DateRange & { preset: DatePreset }>(() => {
-    const now = dayjs()
-    return { from: now.startOf('month').toISOString(), to: now.endOf('month').toISOString(), preset: 'This month' }
+    const now = dayjs.utc()
+    return { from: now.subtract(29, 'day').startOf('day').toISOString(), to: now.endOf('day').toISOString(), preset: 'Last 30 Days' }
   })
+  const [userCreditUsage, setUserCreditUsage] = useState<DashboardUserCreditUsage[]>([])
   const [metrics, setMetrics] = useState<{
     totalUsers: number
     activeSubscriptions: number
@@ -134,10 +150,29 @@ export default function Dashboard() {
           apiKeys: apiKeysMapped,
           audits: auditsMapped
         })
+        setUserCreditUsage(
+          Array.isArray(body.userCreditUsage)
+            ? body.userCreditUsage.map((row: any) => {
+                const planRaw = String(row.plan ?? 'free').toLowerCase()
+                return {
+                  userId: String(row.userId ?? ''),
+                  fullName: String(row.fullName ?? ''),
+                  email: String(row.email ?? ''),
+                  plan: (['free', 'monthly', 'lifetime', 'payg'].includes(planRaw)
+                    ? planRaw
+                    : 'free') as Plan,
+                  creditsUsedInRange: Number(row.creditsUsedInRange ?? 0),
+                  totalCreditsUsed: Number(row.totalCreditsUsed ?? 0),
+                  lastUsedAt: row.lastUsedAt ? String(row.lastUsedAt) : null
+                }
+              })
+            : []
+        )
         if (body.metrics) setMetrics(body.metrics)
       } catch (e) {
         if (cancelled) return
         setAll({ users: [], purchases: [], apiKeys: [], audits: [] })
+        setUserCreditUsage([])
         setMetrics(null)
         setBackendError('Failed to load. Backend may be unreachable.')
       } finally {
@@ -159,6 +194,47 @@ export default function Dashboard() {
   const usersByPlanTotal = usersByPlanDisplay.reduce((acc, i) => acc + (i.value || 0), 0)
 
   const recentItems = metrics?.latestActivity ?? []
+  const selectedRangeLabel = formatRangeLabel(range)
+  const userCreditUsageColumns = [
+    {
+      title: 'User',
+      dataIndex: 'fullName',
+      key: 'fullName',
+      render: (_: string, row: DashboardUserCreditUsage) => row.fullName || '-'
+    },
+    {
+      title: 'Email',
+      dataIndex: 'email',
+      key: 'email'
+    },
+    {
+      title: 'Plan',
+      dataIndex: 'plan',
+      key: 'plan',
+      render: (plan: Plan) => PLAN_DISPLAY_NAME[plan] ?? plan
+    },
+    {
+      title: `Used (${selectedRangeLabel})`,
+      dataIndex: 'creditsUsedInRange',
+      key: 'creditsUsedInRange',
+      defaultSortOrder: 'descend' as const,
+      sorter: (a: DashboardUserCreditUsage, b: DashboardUserCreditUsage) => a.creditsUsedInRange - b.creditsUsedInRange,
+      render: (value: number) => Number(value ?? 0).toLocaleString()
+    },
+    {
+      title: 'Total Used',
+      dataIndex: 'totalCreditsUsed',
+      key: 'totalCreditsUsed',
+      sorter: (a: DashboardUserCreditUsage, b: DashboardUserCreditUsage) => a.totalCreditsUsed - b.totalCreditsUsed,
+      render: (value: number) => Number(value ?? 0).toLocaleString()
+    },
+    {
+      title: 'Last Used',
+      dataIndex: 'lastUsedAt',
+      key: 'lastUsedAt',
+      render: (value: string | null) => value ? dayjs(value).format('YYYY-MM-DD HH:mm') : '-'
+    }
+  ]
 
   if (backendError && !loading && !metrics) {
     return (
@@ -322,6 +398,21 @@ export default function Dashboard() {
           </Card>
         </Col>
       </Row>
+
+      <Card title="Credits used by user" extra={<Typography.Text type="secondary">{selectedRangeLabel}</Typography.Text>}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <Typography.Text type="secondary">
+            Used reflects credits consumed inside the selected range. Total Used is the cumulative lifetime usage for that user.
+          </Typography.Text>
+          <Table<DashboardUserCreditUsage>
+            rowKey="userId"
+            dataSource={userCreditUsage}
+            columns={userCreditUsageColumns}
+            pagination={{ pageSize: 10, showSizeChanger: false }}
+            locale={{ emptyText: 'No credit usage found for this range.' }}
+          />
+        </div>
+      </Card>
 
       <Card title="Recent Activity">
         <List
