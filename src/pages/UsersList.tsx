@@ -237,7 +237,7 @@ export default function UsersList() {
     ;(async () => {
       try {
         setAddCreditsConfirming(true)
-        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8000' : 'https://server.mailsfinder.com')
+        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8000' : 'https://api.mailsfinder.com')
         const bearer = token || localStorage.getItem('ADMIN_TOKEN') || ''
         if (!bearer) {
           logout()
@@ -331,7 +331,7 @@ export default function UsersList() {
         editForm.resetFields()
         return
       }
-      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8000' : 'https://server.mailsfinder.com')
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8000' : 'https://api.mailsfinder.com')
       const bearer = token || localStorage.getItem('ADMIN_TOKEN') || ''
       const url = `${API_BASE_URL}/api/admin/userManagement/users/${editingUser.id}`
       const res = await axios.patch(url, patch, {
@@ -411,7 +411,7 @@ export default function UsersList() {
       className: 'modal-danger mf-modal',
       cancelButtonProps: { className: 'modal-cancel' },
       onOk: async () => {
-        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8000' : 'https://server.mailsfinder.com')
+        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8000' : 'https://api.mailsfinder.com')
         const bearer = token || localStorage.getItem('ADMIN_TOKEN') || ''
         if (!bearer) {
           logout()

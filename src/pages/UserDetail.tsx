@@ -11,7 +11,7 @@ import { mapUser } from '../utils/mappers'
 // Spec: monthly users have a 10k/day cap on the monthly bucket.
 const MONTHLY_DAILY_CAP = 10000
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8000' : 'https://server.mailsfinder.com')
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8000' : 'https://api.mailsfinder.com')
 
 export default function UserDetail() {
   const { id } = useParams<{ id: string }>()

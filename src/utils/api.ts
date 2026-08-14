@@ -2,7 +2,7 @@ import axios, { AxiosError, AxiosRequestConfig, InternalAxiosRequestConfig } fro
 
 export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ??
-  (import.meta.env.DEV ? 'http://localhost:8000' : 'https://server.mailsfinder.com')
+  (import.meta.env.DEV ? 'http://localhost:8000' : 'https://api.mailsfinder.com')
 
 export const TOKEN_KEY = 'ADMIN_TOKEN'
 export const REFRESH_TOKEN_KEY = 'ADMIN_REFRESH_TOKEN'

@@ -12,7 +12,7 @@ export default function Login() {
 
   async function onFinish(values: any) {
     setError(null)
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8000' : 'https://server.mailsfinder.com')
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8000' : 'https://api.mailsfinder.com')
     setLoading(true)
     try {
       const email = String(values.email || '').trim().toLowerCase()
