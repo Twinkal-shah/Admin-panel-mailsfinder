@@ -1,433 +1,439 @@
-import { useEffect, useState } from 'react'
-import { Card, Typography, Row, Col, List, Table, Tag, Skeleton, Result, theme } from 'antd'
+import { Suspense, lazy, useMemo, useState } from 'react'
+import { Alert, Button, Table, Tag, Tooltip, Typography } from 'antd'
 import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Legend,
-  CartesianGrid,
-  PieChart,
-  Pie,
-  Cell
-} from 'recharts'
+  ReloadOutlined,
+  TeamOutlined,
+  CreditCardOutlined,
+  DollarOutlined,
+  ThunderboltOutlined,
+  UserAddOutlined,
+  FallOutlined,
+  RiseOutlined,
+  HistoryOutlined,
+  BarChartOutlined,
+  PieChartOutlined
+} from '@ant-design/icons'
 import DateFilter, { DateRange, DatePreset } from '../components/DateFilter'
-import { useDataStore } from '../store/data'
-import { useAuthStore } from '../store/auth'
+import PageHeader from '../components/PageHeader'
+import SectionCard from '../components/SectionCard'
+import StatCard from '../components/StatCard'
+import EmptyState from '../components/EmptyState'
+import { ChartSkeleton, DonutSkeleton, ListSkeleton, TableSkeleton } from '../components/skeletons'
+import { DashboardUserCreditUsage, useDashboardData } from '../store/dashboard'
 import { PLAN_DISPLAY_NAME, Plan } from '../types/types'
-import { mapApiKey, mapUser } from '../utils/mappers'
 import { PLAN_COLORS, PLAN_ORDER } from '../ui/planTheme'
 import dayjs from 'dayjs'
-import utc from 'dayjs/plugin/utc'
 
-function KPI({ title, value, suffix, delta }: { title: string; value: number | string; suffix?: string; delta?: number }) {
-  const sign = delta === undefined ? '' : delta >= 0 ? '+' : ''
-  return (
-    <Card>
-      <Typography.Text type="secondary">{title}</Typography.Text>
-      <Typography.Title level={3} style={{ marginTop: 8 }}>
-        {value}{suffix ? ` ${suffix}` : ''}
-      </Typography.Title>
-      {delta !== undefined && (
-        <Tag
-          style={{
-            marginTop: 8,
-            borderRadius: 999
-          }}
-        >
-          {sign}{delta.toFixed(1)}%
-        </Tag>
-      )}
-    </Card>
-  )
-}
-
-type DashboardUserCreditUsage = {
-  userId: string
-  fullName: string
-  email: string
-  plan: Plan
-  creditsUsedInRange: number
-  totalCreditsUsed: number
-  lastUsedAt: string | null
-}
+// Recharts is ~400KB of the bundle and nothing above the fold needs it, so it
+// streams in after the KPI row has already painted.
+const RevenueSignupsChart = lazy(() => import('../components/charts/RevenueSignupsChart'))
+const UsersByPlanChart = lazy(() => import('../components/charts/UsersByPlanChart'))
 
 function formatRangeLabel(range: DateRange & { preset: DatePreset }) {
   if (range.preset !== 'Custom Range') return range.preset
-  return `${dayjs.utc(range.from).format('YYYY-MM-DD')} to ${dayjs.utc(range.to).format('YYYY-MM-DD')}`
+  return `${dayjs.utc(range.from).format('MMM D, YYYY')} – ${dayjs.utc(range.to).format('MMM D, YYYY')}`
+}
+
+function compact(n: number): string {
+  return Number(n ?? 0).toLocaleString()
+}
+
+function money(n: number): string {
+  const v = Number(n ?? 0)
+  // Whole amounts stay clean; fractional ones get both cents rather than
+  // rendering as "$184,920.5".
+  const digits = Number.isInteger(v) ? 0 : 2
+  return `$${v.toLocaleString(undefined, {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits
+  })}`
+}
+
+const ACTIVITY_COLORS: Record<string, string> = {
+  signup: 'blue',
+  purchase: 'green',
+  refund: 'red'
+}
+
+function activityColor(type: string): string | undefined {
+  return ACTIVITY_COLORS[String(type).toLowerCase()]
 }
 
 export default function Dashboard() {
-  const { setAll } = useDataStore()
-  const { token } = useAuthStore()
-  const [loading, setLoading] = useState(false)
-  const [backendError, setBackendError] = useState<string | null>(null)
-  const { token: antdToken } = theme.useToken()
-  const isDarkMode = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'dark'
-  dayjs.extend(utc)
   const [range, setRange] = useState<DateRange & { preset: DatePreset }>(() => {
     const now = dayjs.utc()
-    return { from: now.subtract(29, 'day').startOf('day').toISOString(), to: now.endOf('day').toISOString(), preset: 'Last 30 Days' }
+    return {
+      from: now.subtract(29, 'day').startOf('day').toISOString(),
+      to: now.endOf('day').toISOString(),
+      preset: 'Last 30 Days'
+    }
   })
-  const [userCreditUsage, setUserCreditUsage] = useState<DashboardUserCreditUsage[]>([])
-  const [metrics, setMetrics] = useState<{
-    totalUsers: number
-    activeSubscriptions: number
-    totalRevenue: number
-    totalCreditsUsed: number
-    newUsersThisMonth: { count: number; deltaPct: number }
-    churnPct: number
-    activeUsersLast30: number
-    timeSeries: { date: string; revenue: number; signups: number }[]
-    usersByPlan: { name: string; value: number }[]
-    latestActivity: { type: string; when: string; text: string }[]
-  } | null>(null)
 
-  useEffect(() => {
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8000' : 'https://server.mailsfinder.com')
-    let cancelled = false
+  const {
+    metrics,
+    userCreditUsage,
+    initialLoading,
+    refreshing,
+    error,
+    fetchedAt,
+    durationMs,
+    refresh
+  } = useDashboardData(range.from, range.to)
 
-    async function load() {
-      setLoading(true)
-      setBackendError(null)
-      try {
-        const params = new URLSearchParams({
-          from: dayjs.utc(range.from).format('YYYY-MM-DD'),
-          to: dayjs.utc(range.to).format('YYYY-MM-DD')
-        })
-        const res = await fetch(`${API_BASE_URL}/api/admin/dashboard/bootstrap?${params.toString()}`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        })
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const body = await res.json()
-        if (cancelled) return
-
-        const usersMapped = Array.isArray(body.users) ? body.users.map(mapUser) : []
-
-        const purchasesMapped =
-          Array.isArray(body.purchases)
-            ? body.purchases.map((p: any) => {
-                const planRaw = String(p.planName ?? p.plan_name ?? 'free').toLowerCase()
-                const planName: Plan =
-                  planRaw === 'monthly' || planRaw === 'lifetime' || planRaw === 'payg'
-                    ? (planRaw as Plan)
-                    : 'free'
-
-                const statusRaw: string = p.paymentStatus ?? p.status ?? 'paid'
-                const status: 'paid' | 'refunded' | 'pending' =
-                  statusRaw === 'refunded'
-                    ? 'refunded'
-                    : statusRaw === 'pending'
-                    ? 'pending'
-                    : 'paid'
-
-                return {
-                  id: String(p._id ?? p.id),
-                  userId: String(p.userId),
-                  planName,
-                  status,
-                  date: p.paymentDate ?? p.date ?? p.createdAt,
-                  amount: Number(p.amountPaid ?? p.amount ?? 0)
-                }
-              })
-            : []
-
-        const apiKeysMappedSource = Array.isArray(body.apiKeys)
-          ? body.apiKeys
-          : Array.isArray(body.apikeys)
-          ? body.apikeys
-          : []
-
-        const apiKeysMapped = apiKeysMappedSource.map(mapApiKey)
-
-        const auditsMapped = Array.isArray(body.audits) ? body.audits : []
-
-        setAll({
-          users: usersMapped,
-          purchases: purchasesMapped,
-          apiKeys: apiKeysMapped,
-          audits: auditsMapped
-        })
-        setUserCreditUsage(
-          Array.isArray(body.userCreditUsage)
-            ? body.userCreditUsage.map((row: any) => {
-                const planRaw = String(row.plan ?? 'free').toLowerCase()
-                return {
-                  userId: String(row.userId ?? ''),
-                  fullName: String(row.fullName ?? ''),
-                  email: String(row.email ?? ''),
-                  plan: (['free', 'monthly', 'lifetime', 'payg'].includes(planRaw)
-                    ? planRaw
-                    : 'free') as Plan,
-                  creditsUsedInRange: Number(row.creditsUsedInRange ?? 0),
-                  totalCreditsUsed: Number(row.totalCreditsUsed ?? 0),
-                  lastUsedAt: row.lastUsedAt ? String(row.lastUsedAt) : null
-                }
-              })
-            : []
-        )
-        if (body.metrics) setMetrics(body.metrics)
-      } catch (e) {
-        if (cancelled) return
-        setAll({ users: [], purchases: [], apiKeys: [], audits: [] })
-        setUserCreditUsage([])
-        setMetrics(null)
-        setBackendError('Failed to load. Backend may be unreachable.')
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-
-    load()
-
-    return () => {
-      cancelled = true
-    }
-  }, [setAll, token, range.from, range.to])
-
-  const usersByPlanDisplay: { name: Plan; value: number }[] = (() => {
-    const map = new Map<string, number>((metrics?.usersByPlan ?? []).map(i => [String(i.name).toLowerCase(), Number(i.value) || 0]))
-    return PLAN_ORDER.map(name => ({ name, value: map.get(name) ?? 0 })) as any
-  })()
-  const usersByPlanTotal = usersByPlanDisplay.reduce((acc, i) => acc + (i.value || 0), 0)
-
-  const recentItems = metrics?.latestActivity ?? []
   const selectedRangeLabel = formatRangeLabel(range)
-  const userCreditUsageColumns = [
-    {
-      title: 'User',
-      dataIndex: 'fullName',
-      key: 'fullName',
-      render: (_: string, row: DashboardUserCreditUsage) => row.fullName || '-'
-    },
-    {
-      title: 'Email',
-      dataIndex: 'email',
-      key: 'email'
-    },
-    {
-      title: 'Plan',
-      dataIndex: 'plan',
-      key: 'plan',
-      render: (plan: Plan) => PLAN_DISPLAY_NAME[plan] ?? plan
-    },
-    {
-      title: `Used (${selectedRangeLabel})`,
-      dataIndex: 'creditsUsedInRange',
-      key: 'creditsUsedInRange',
-      defaultSortOrder: 'descend' as const,
-      sorter: (a: DashboardUserCreditUsage, b: DashboardUserCreditUsage) => a.creditsUsedInRange - b.creditsUsedInRange,
-      render: (value: number) => Number(value ?? 0).toLocaleString()
-    },
-    {
-      title: 'Total Used',
-      dataIndex: 'totalCreditsUsed',
-      key: 'totalCreditsUsed',
-      sorter: (a: DashboardUserCreditUsage, b: DashboardUserCreditUsage) => a.totalCreditsUsed - b.totalCreditsUsed,
-      render: (value: number) => Number(value ?? 0).toLocaleString()
-    },
-    {
-      title: 'Last Used',
-      dataIndex: 'lastUsedAt',
-      key: 'lastUsedAt',
-      render: (value: string | null) => value ? dayjs(value).format('YYYY-MM-DD HH:mm') : '-'
-    }
-  ]
 
-  if (backendError && !loading && !metrics) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-          <Typography.Title level={3} style={{ margin: 0 }}>Dashboard</Typography.Title>
-          <DateFilter value={range} onChange={setRange} />
-        </div>
-        <Card>
-          <Result status="error" title="Failed to load" subTitle="Backend may be unreachable." />
-        </Card>
-      </div>
+  const usersByPlan = useMemo(() => {
+    const map = new Map<string, number>(
+      (metrics?.usersByPlan ?? []).map(i => [String(i.name).toLowerCase(), Number(i.value) || 0])
     )
-  }
+    return PLAN_ORDER.map(name => ({ name, value: map.get(name) ?? 0 }))
+  }, [metrics?.usersByPlan])
+
+  const usersByPlanTotal = useMemo(
+    () => usersByPlan.reduce((acc, i) => acc + (i.value || 0), 0),
+    [usersByPlan]
+  )
+
+  const timeSeries = metrics?.timeSeries ?? []
+  const recentItems = metrics?.latestActivity ?? []
+
+  const creditColumns = useMemo(
+    () => [
+      {
+        title: 'User',
+        dataIndex: 'fullName',
+        key: 'fullName',
+        render: (_: string, row: DashboardUserCreditUsage) => (
+          <div className="mf-cell-stack">
+            <span className="mf-cell-stack__primary">{row.fullName || '—'}</span>
+            <span className="mf-cell-stack__secondary">{row.email}</span>
+          </div>
+        )
+      },
+      {
+        title: 'Plan',
+        dataIndex: 'plan',
+        key: 'plan',
+        width: 140,
+        render: (plan: Plan) => (
+          <Tag
+            className="mf-plan-tag"
+            style={{ color: PLAN_COLORS[plan], borderColor: PLAN_COLORS[plan] }}
+          >
+            {PLAN_DISPLAY_NAME[plan] ?? plan}
+          </Tag>
+        )
+      },
+      {
+        title: 'Used in period',
+        dataIndex: 'creditsUsedInRange',
+        key: 'creditsUsedInRange',
+        align: 'right' as const,
+        width: 180,
+        defaultSortOrder: 'descend' as const,
+        sorter: (a: DashboardUserCreditUsage, b: DashboardUserCreditUsage) =>
+          a.creditsUsedInRange - b.creditsUsedInRange,
+        render: (value: number) => <span className="mf-num">{compact(value)}</span>
+      },
+      {
+        title: 'Total used',
+        dataIndex: 'totalCreditsUsed',
+        key: 'totalCreditsUsed',
+        align: 'right' as const,
+        width: 140,
+        sorter: (a: DashboardUserCreditUsage, b: DashboardUserCreditUsage) =>
+          a.totalCreditsUsed - b.totalCreditsUsed,
+        render: (value: number) => <span className="mf-num mf-num--muted">{compact(value)}</span>
+      },
+      {
+        title: 'Last used',
+        dataIndex: 'lastUsedAt',
+        key: 'lastUsedAt',
+        width: 170,
+        render: (value: string | null) =>
+          value ? (
+            <Tooltip title={dayjs(value).format('YYYY-MM-DD HH:mm')}>
+              <span className="mf-cell-muted">{dayjs(value).fromNow()}</span>
+            </Tooltip>
+          ) : (
+            <span className="mf-cell-muted">—</span>
+          )
+      }
+    ],
+    []
+  )
+
+  const activityColumns = useMemo(
+    () => [
+      {
+        title: 'Type',
+        dataIndex: 'type',
+        key: 'type',
+        width: 130,
+        render: (type: string) => <Tag color={activityColor(type)}>{type}</Tag>
+      },
+      {
+        title: 'Activity',
+        dataIndex: 'text',
+        key: 'text',
+        render: (text: string) => <span className="mf-cell-strong">{text}</span>
+      },
+      {
+        title: 'When',
+        dataIndex: 'when',
+        key: 'when',
+        width: 200,
+        align: 'right' as const,
+        render: (when: string) => (
+          <Tooltip title={dayjs(when).format('YYYY-MM-DD HH:mm')}>
+            <span className="mf-cell-muted">{dayjs(when).fromNow()}</span>
+          </Tooltip>
+        )
+      }
+    ],
+    []
+  )
+
+  // Hard failure with nothing cached to fall back on.
+  const fatal = !!error && !metrics
+  // Data on screen belongs to a previous range/fetch while a new one is in
+  // flight. Dim it slightly so the numbers are never silently misattributed.
+  const showingStale = refreshing && !initialLoading
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <Typography.Title level={3} style={{ margin: 0 }}>Dashboard</Typography.Title>
-          {backendError && (
-            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-              {backendError}
-            </Typography.Text>
-          )}
-        </div>
+    <div className={`mf-page${showingStale ? ' mf-page--stale' : ''}`}>
+      <PageHeader
+        title="Dashboard"
+        subtitle="Overview of your MailsFinder platform"
+        actions={
+          <div className="mf-page-header__toolbar">
+            {fetchedAt && (
+              <Tooltip
+                title={
+                  durationMs != null
+                    ? `Loaded in ${durationMs}ms · ${dayjs(fetchedAt).format('HH:mm:ss')}`
+                    : dayjs(fetchedAt).format('HH:mm:ss')
+                }
+              >
+                <Typography.Text type="secondary" className="mf-updated">
+                  {refreshing ? 'Refreshing…' : `Updated ${dayjs(fetchedAt).fromNow()}`}
+                </Typography.Text>
+              </Tooltip>
+            )}
+            <Button icon={<ReloadOutlined />} onClick={refresh} loading={refreshing}>
+              Refresh
+            </Button>
+          </div>
+        }
+      />
+
+      <div className="mf-toolbar">
         <DateFilter value={range} onChange={setRange} />
       </div>
 
-      {loading && (
-        <>
-          <Row gutter={16}>
-            <Col xs={24} sm={12} md={12} lg={6}><Skeleton active paragraph={{ rows: 2 }} /></Col>
-            <Col xs={24} sm={12} md={12} lg={6}><Skeleton active paragraph={{ rows: 2 }} /></Col>
-            <Col xs={24} sm={12} md={12} lg={6}><Skeleton active paragraph={{ rows: 2 }} /></Col>
-            <Col xs={24} sm={12} md={12} lg={6}><Skeleton active paragraph={{ rows: 2 }} /></Col>
-          </Row>
-          <Row gutter={16} style={{ marginTop: 16 }}>
-            <Col xs={24} lg={16}><Skeleton active paragraph={{ rows: 6 }} /></Col>
-            <Col xs={24} lg={8}><Skeleton active paragraph={{ rows: 6 }} /></Col>
-          </Row>
-          <Card title="Recent Activity (latest 50)" style={{ marginTop: 16 }}>
-            <Skeleton active paragraph={{ rows: 5 }} />
-          </Card>
-        </>
+      {error && (
+        <Alert
+          type={metrics ? 'warning' : 'error'}
+          showIcon
+          message={
+            metrics
+              ? 'Showing the last successfully loaded data — the latest refresh failed.'
+              : 'Failed to load. Backend may be unreachable.'
+          }
+          action={
+            <Button size="small" onClick={refresh}>
+              Retry
+            </Button>
+          }
+        />
       )}
 
-      <Row gutter={16}>
-        <Col xs={24} sm={12} md={12} lg={6}><KPI title="Total users" value={metrics?.totalUsers ?? 0} /></Col>
-        <Col xs={24} sm={12} md={12} lg={6}><KPI title="Active subscriptions" value={metrics?.activeSubscriptions ?? 0} /></Col>
-        <Col xs={24} sm={12} md={12} lg={6}><KPI title="Total revenue" value={metrics?.totalRevenue ?? 0} suffix="$" /></Col>
-        <Col xs={24} sm={12} md={12} lg={6}><KPI title="Total Credits Used" value={metrics?.totalCreditsUsed ?? 0} /></Col>
-      </Row>
-
-      <Row gutter={16}>
-        <Col xs={24} sm={12} md={8}><KPI title="New users (MoM)" value={metrics?.newUsersThisMonth?.count ?? 0} delta={metrics?.newUsersThisMonth?.deltaPct ?? 0} /></Col>
-        <Col xs={24} sm={12} md={8}><KPI title="Churn %" value={Number.isFinite(metrics?.churnPct ?? 0) ? (metrics?.churnPct ?? 0).toFixed(1) : 0} suffix="%" /></Col>
-        <Col xs={24} sm={12} md={8}><KPI title="Active users (30d)" value={metrics?.activeUsersLast30 ?? 0} /></Col>
-      </Row>
-
-      <Row gutter={16}>
-        <Col xs={24}>
-          <Card title="Revenue and signups">
-            <div style={{ width: '100%', height: 260 }}>
-              <ResponsiveContainer>
-                <BarChart data={metrics?.timeSeries ?? []}>
-                  <CartesianGrid stroke={isDarkMode ? '#262626' : antdToken.colorBorder} vertical={false} />
-                  <XAxis dataKey="date" tick={{ fill: isDarkMode ? '#a3a3a3' : antdToken.colorTextSecondary, fontSize: 11 }} />
-                  <YAxis
-                    yAxisId="left"
-                    tick={{ fill: isDarkMode ? '#a3a3a3' : antdToken.colorTextSecondary, fontSize: 11 }}
-                    stroke={isDarkMode ? '#737373' : antdToken.colorTextSecondary}
-                  />
-                  <YAxis
-                    yAxisId="right"
-                    orientation="right"
-                    tick={{ fill: isDarkMode ? '#a3a3a3' : antdToken.colorTextSecondary, fontSize: 11 }}
-                    stroke={isDarkMode ? '#737373' : antdToken.colorTextSecondary}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      background: isDarkMode ? '#050505' : antdToken.colorBgContainer,
-                      border: `1px solid ${isDarkMode ? '#262626' : antdToken.colorBorder}`
-                    }}
-                    labelStyle={{ color: isDarkMode ? '#f5f5f5' : antdToken.colorText }}
-                  />
-                  <Legend wrapperStyle={{ color: isDarkMode ? '#a3a3a3' : antdToken.colorTextSecondary }} />
-                  <Bar
-                    yAxisId="left"
-                    dataKey="revenue"
-                    name="Revenue ($)"
-                    fill={isDarkMode ? '#737373' : '#93c5fd'}
-                    radius={[4, 4, 0, 0]}
-                  />
-                  <Bar
-                    yAxisId="right"
-                    dataKey="signups"
-                    name="Signups"
-                    fill={isDarkMode ? '#b3b3b3' : '#bfdbfe'}
-                    radius={[4, 4, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </Card>
-        </Col>
-      </Row>
-      
-      <Row gutter={16}>
-        <Col xs={24}>
-          <Card title="Users by plan">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 12, boxSizing: 'border-box' }}>
-              <div style={{ width: '100%', height: 380, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
-                    <Tooltip
-                      formatter={(value: number, name: string) => {
-                        const pct = usersByPlanTotal > 0 ? Math.round((value / usersByPlanTotal) * 100) : 0
-                        return [`${pct}% (${value} users)`, name]
-                      }}
-                      contentStyle={{
-                        background: isDarkMode ? '#050505' : antdToken.colorBgContainer,
-                        border: `1px solid ${isDarkMode ? '#262626' : antdToken.colorBorder}`,
-                        color: isDarkMode ? '#f5f5f5' : antdToken.colorText
-                      }}
-                      labelStyle={{ color: isDarkMode ? '#f5f5f5' : antdToken.colorText }}
-                      itemStyle={{ color: isDarkMode ? '#f5f5f5' : antdToken.colorText }}
-                    />
-                    <Pie
-                      data={usersByPlanDisplay}
-                      dataKey="value"
-                      nameKey="name"
-                      innerRadius="55%"
-                      outerRadius="85%"
-                      paddingAngle={2}
-                      isAnimationActive
-                      animationDuration={600}
-                      label={false}
-                      labelLine={false}
-                    >
-                      {usersByPlanDisplay.map(entry => (
-                        <Cell key={entry.name} fill={PLAN_COLORS[entry.name as keyof typeof PLAN_COLORS]} />
-                      ))}
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center', alignItems: 'center' }}>
-                {usersByPlanDisplay.map(item => {
-                  const pct = usersByPlanTotal > 0 ? Math.round((item.value / usersByPlanTotal) * 100) : 0
-                  const color = PLAN_COLORS[item.name as keyof typeof PLAN_COLORS]
-                  return (
-                    <div key={item.name} style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 180 }}>
-                      <span style={{ width: 10, height: 10, borderRadius: 999, background: color }} />
-                      <span style={{ color }}>{PLAN_DISPLAY_NAME[item.name as Plan] ?? item.name} – {pct}% ({item.value} users)</span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          </Card>
-        </Col>
-      </Row>
-
-      <Card title="Credits used by user" extra={<Typography.Text type="secondary">{selectedRangeLabel}</Typography.Text>}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <Typography.Text type="secondary">
-            Used reflects credits consumed inside the selected range. Total Used is the cumulative lifetime usage for that user.
-          </Typography.Text>
-          <Table<DashboardUserCreditUsage>
-            rowKey="userId"
-            dataSource={userCreditUsage}
-            columns={userCreditUsageColumns}
-            pagination={{ pageSize: 10, showSizeChanger: false }}
-            locale={{ emptyText: 'No credit usage found for this range.' }}
+      {fatal ? (
+        <SectionCard>
+          <EmptyState
+            title="Dashboard data unavailable"
+            hint="We couldn't reach the admin API. Check your connection and try again."
+            action={
+              <Button type="primary" icon={<ReloadOutlined />} onClick={refresh}>
+                Retry
+              </Button>
+            }
           />
-        </div>
-      </Card>
+        </SectionCard>
+      ) : (
+        <>
+          <section className="mf-kpi-grid" aria-label="Key metrics">
+            <StatCard
+              label="Total users"
+              value={compact(metrics?.totalUsers ?? 0)}
+              icon={<TeamOutlined />}
+              loading={initialLoading}
+            />
+            <StatCard
+              label="Active subscriptions"
+              value={compact(metrics?.activeSubscriptions ?? 0)}
+              icon={<CreditCardOutlined />}
+              loading={initialLoading}
+            />
+            <StatCard
+              label="Total revenue"
+              value={money(metrics?.totalRevenue ?? 0)}
+              icon={<DollarOutlined />}
+              loading={initialLoading}
+            />
+            <StatCard
+              label="Total credits used"
+              value={compact(metrics?.totalCreditsUsed ?? 0)}
+              icon={<ThunderboltOutlined />}
+              loading={initialLoading}
+            />
+          </section>
 
-      <Card title="Recent Activity">
-        <List
-          dataSource={recentItems}
-          pagination={{ pageSize: 10 }}
-          renderItem={(item) => (
-            <List.Item>
-              <List.Item.Meta
-                title={item.text}
-                description={dayjs(item.when).format('YYYY-MM-DD HH:mm')}
+          <section className="mf-kpi-grid mf-kpi-grid--three" aria-label="Secondary metrics">
+            <StatCard
+              label="New users (MoM)"
+              value={compact(metrics?.newUsersThisMonth?.count ?? 0)}
+              delta={metrics?.newUsersThisMonth?.deltaPct}
+              icon={<UserAddOutlined />}
+              loading={initialLoading}
+            />
+            <StatCard
+              label="Churn"
+              value={`${Number(metrics?.churnPct ?? 0).toFixed(1)}%`}
+              hint="Cancelled vs. users created in period"
+              icon={<FallOutlined />}
+              loading={initialLoading}
+            />
+            <StatCard
+              label="Active users (30d)"
+              value={compact(metrics?.activeUsersLast30 ?? 0)}
+              hint="Seen in the last 30 days"
+              icon={<RiseOutlined />}
+              loading={initialLoading}
+            />
+          </section>
+
+          <div className="mf-split">
+            <SectionCard
+              title="Revenue and signups"
+              description={selectedRangeLabel}
+              extra={<BarChartOutlined className="mf-card__glyph" />}
+            >
+              {initialLoading ? (
+                <ChartSkeleton height={280} />
+              ) : timeSeries.length === 0 ? (
+                <EmptyState
+                  compact
+                  icon={<BarChartOutlined />}
+                  title="No activity in this period"
+                  hint="Try widening the date range."
+                />
+              ) : (
+                <Suspense fallback={<ChartSkeleton height={280} />}>
+                  <RevenueSignupsChart data={timeSeries} height={280} />
+                </Suspense>
+              )}
+            </SectionCard>
+
+            <SectionCard
+              title="Users by plan"
+              description={initialLoading ? 'Loading…' : `${compact(usersByPlanTotal)} users total`}
+              extra={<PieChartOutlined className="mf-card__glyph" />}
+            >
+              {initialLoading ? (
+                <DonutSkeleton height={280} />
+              ) : usersByPlanTotal === 0 ? (
+                <EmptyState
+                  compact
+                  icon={<PieChartOutlined />}
+                  title="No users to break down"
+                  hint="Plan distribution appears once users exist."
+                />
+              ) : (
+                <Suspense fallback={<DonutSkeleton height={280} />}>
+                  <UsersByPlanChart data={usersByPlan} total={usersByPlanTotal} height={280} />
+                </Suspense>
+              )}
+            </SectionCard>
+          </div>
+
+          <SectionCard
+            title="Credits used by user"
+            description="“Used in period” is consumption inside the selected range. “Total used” is lifetime."
+            extra={<Tag className="mf-range-tag">{selectedRangeLabel}</Tag>}
+            noPadding
+          >
+            {initialLoading ? (
+              <div className="mf-card__body-pad">
+                <TableSkeleton rows={6} cols={5} />
+              </div>
+            ) : (
+              <Table<DashboardUserCreditUsage>
+                className="mf-table"
+                rowKey="userId"
+                dataSource={userCreditUsage}
+                columns={creditColumns}
+                size="middle"
+                scroll={{ x: 'max-content' }}
+                pagination={
+                  userCreditUsage.length > 10
+                    ? { pageSize: 10, showSizeChanger: false, size: 'small' }
+                    : false
+                }
+                locale={{
+                  emptyText: (
+                    <EmptyState
+                      compact
+                      icon={<ThunderboltOutlined />}
+                      title="No credit usage in this period"
+                      hint="Pick a wider range to see consumption."
+                    />
+                  )
+                }}
               />
-            </List.Item>
-          )}
-        />
-      </Card>
+            )}
+          </SectionCard>
+
+          <SectionCard
+            title="Recent activity"
+            description="Latest platform events"
+            extra={<HistoryOutlined className="mf-card__glyph" />}
+            noPadding
+          >
+            {initialLoading ? (
+              <div className="mf-card__body-pad">
+                <ListSkeleton rows={5} />
+              </div>
+            ) : (
+              <Table
+                className="mf-table"
+                rowKey={(row: { type: string; when: string; text: string }) =>
+                  `${row.when}|${row.type}|${row.text}`
+                }
+                dataSource={recentItems}
+                columns={activityColumns}
+                size="middle"
+                scroll={{ x: 'max-content' }}
+                pagination={
+                  recentItems.length > 10
+                    ? { pageSize: 10, showSizeChanger: false, size: 'small' }
+                    : false
+                }
+                locale={{
+                  emptyText: (
+                    <EmptyState
+                      compact
+                      icon={<HistoryOutlined />}
+                      title="No activity yet"
+                      hint="Signups, purchases and refunds will show up here."
+                    />
+                  )
+                }}
+              />
+            )}
+          </SectionCard>
+        </>
+      )}
     </div>
   )
 }

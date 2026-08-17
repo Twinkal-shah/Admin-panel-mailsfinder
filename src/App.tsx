@@ -1,16 +1,21 @@
 import { ConfigProvider, theme } from 'antd'
 import { Route, Routes, Navigate } from 'react-router-dom'
 import LayoutShell from './components/LayoutShell'
-import Dashboard from './pages/Dashboard'
-import UsersList from './pages/UsersList'
-import UserDetail from './pages/UserDetail'
-import CMSLite from './pages/CMSLite'
-import ApiKeys from './pages/ApiKeys'
-import AuditLogs from './pages/AuditLogs'
 import Login from './pages/Login'
+import RouteFallback from './components/RouteFallback'
 import { useAuthStore } from './store/auth'
 import { setUnauthorizedHandler } from './utils/api'
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
+
+// Route-level splitting. Previously every page (plus recharts and
+// react-markdown) shipped in one ~1.9MB chunk that had to parse before
+// anything painted.
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const UsersList = lazy(() => import('./pages/UsersList'))
+const UserDetail = lazy(() => import('./pages/UserDetail'))
+const CMSLite = lazy(() => import('./pages/CMSLite'))
+const ApiKeys = lazy(() => import('./pages/ApiKeys'))
+const AuditLogs = lazy(() => import('./pages/AuditLogs'))
 
 function ProtectedRoute({ children }: { children: JSX.Element }) {
   const { isAuthenticated } = useAuthStore()
@@ -93,12 +98,12 @@ export default function App() {
             </ProtectedRoute>
           }
         >
-          <Route index element={<Dashboard />} />
-          <Route path="users" element={<UsersList />} />
-          <Route path="users/:id" element={<UserDetail />} />
-          <Route path="content" element={<CMSLite />} />
-          <Route path="apikeys" element={<ApiKeys />} />
-          <Route path="audit" element={<AuditLogs />} />
+          <Route index element={<Suspense fallback={<RouteFallback />}><Dashboard /></Suspense>} />
+          <Route path="users" element={<Suspense fallback={<RouteFallback />}><UsersList /></Suspense>} />
+          <Route path="users/:id" element={<Suspense fallback={<RouteFallback />}><UserDetail /></Suspense>} />
+          <Route path="content" element={<Suspense fallback={<RouteFallback />}><CMSLite /></Suspense>} />
+          <Route path="apikeys" element={<Suspense fallback={<RouteFallback />}><ApiKeys /></Suspense>} />
+          <Route path="audit" element={<Suspense fallback={<RouteFallback />}><AuditLogs /></Suspense>} />
         </Route>
       </Routes>
     </ConfigProvider>

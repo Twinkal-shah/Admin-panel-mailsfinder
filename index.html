@@ -4,9 +4,29 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MailsFinder Admin</title>
+    <!-- Apply the saved theme before first paint. `data-theme` is hardcoded to
+         dark below, so a light-mode user previously saw a dark flash until
+         React's effect ran. Same storage key and same default as App.tsx. -->
+    <script>
+      try {
+        var saved = localStorage.getItem('theme');
+        document.documentElement.setAttribute('data-theme', saved === 'light' ? 'light' : 'dark');
+      } catch (e) {}
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Loaded async: as a plain stylesheet this blocked first paint by ~200ms+.
+         Same font, same weights — `display=swap` means text paints immediately
+         in the fallback and reflows to Space Grotesk when it lands. -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap"
+      media="print"
+      onload="this.media='all'"
+    >
+    <noscript>
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap">
+    </noscript>
     <style>
       html, body, #root { height: 100%; }
       body { margin: 0; }
@@ -71,10 +91,68 @@
       html[data-theme="dark"] .ant-form-item-label > label {
         color: var(--text) !important;
       }
+
+      /* Pre-React boot shell. Paints the sidebar + header silhouette from the
+         first HTML byte so a cold load never shows an empty page while the JS
+         chunks stream in. React unmounts it on first render. */
+      #boot-shell {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        background: var(--bg, #1b1c1b);
+      }
+      #boot-shell .bs-side {
+        width: 248px;
+        flex: none;
+        background: var(--sidebar, #121212);
+        border-right: 1px solid var(--border, rgba(183, 29, 63, 0.25));
+      }
+      :root[data-theme="light"] #boot-shell .bs-side {
+        background: #ffffff;
+      }
+      #boot-shell .bs-main { flex: 1; display: flex; flex-direction: column; }
+      #boot-shell .bs-top {
+        height: 60px;
+        flex: none;
+        border-bottom: 1px solid var(--border, rgba(183, 29, 63, 0.25));
+      }
+      #boot-shell .bs-brand {
+        margin: 18px;
+        height: 34px;
+        width: 34px;
+        border-radius: 9px;
+        background-image: linear-gradient(135deg, #b71d3f, #fc536d);
+      }
+      #boot-shell .bs-bar {
+        margin: 12px 18px;
+        height: 34px;
+        border-radius: 8px;
+        background: currentColor;
+        opacity: 0.06;
+      }
+      #boot-shell .bs-body { flex: 1; padding: 12px; color: var(--text, #fbf9f8); }
+      @media (max-width: 767px) {
+        #boot-shell .bs-side { display: none; }
+      }
     </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="boot-shell" aria-hidden="true">
+        <div class="bs-side">
+          <div class="bs-brand"></div>
+          <div class="bs-bar"></div>
+          <div class="bs-bar"></div>
+          <div class="bs-bar"></div>
+          <div class="bs-bar"></div>
+          <div class="bs-bar"></div>
+        </div>
+        <div class="bs-main">
+          <div class="bs-top"></div>
+          <div class="bs-body"></div>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useDataStore } from '../store/data'
-import { Button, Card, Form, Input, Modal, Select, Space, Table, Tag, Typography, DatePicker, Grid, Alert, Skeleton, message } from 'antd'
+import { Button, Form, Input, Modal, Select, Table, Tag, Typography, DatePicker, Grid, Alert, message } from 'antd'
+import { ReloadOutlined, TeamOutlined } from '@ant-design/icons'
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table'
 import { PLAN_DISPLAY_NAME, User } from '../types/types'
 import { PLAN_COLORS, PLAN_ORDER, badgeStyles, rowAccentStyle } from '../ui/planTheme'
 import { mapUser } from '../utils/mappers'
+import PageHeader from '../components/PageHeader'
+import SectionCard from '../components/SectionCard'
+import EmptyState from '../components/EmptyState'
+import { TableSkeleton } from '../components/skeletons'
+import { useIsDark } from '../ui/useIsDark'
 import dayjs from 'dayjs'
 import { useAuthStore } from '../store/auth'
 import { hasScope } from '../store/rbac'
@@ -18,7 +24,7 @@ export default function UsersList() {
   const navigate = useNavigate()
   const screens = Grid.useBreakpoint()
   const isMobile = !screens.md
-  const isDarkMode = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'dark'
+  const isDarkMode = useIsDark()
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([])
 
   const [search, setSearch] = useState('')
@@ -201,6 +207,10 @@ export default function UsersList() {
     {
       title: 'Actions',
       key: 'actions',
+      // This table always scrolls horizontally (scroll.x = max-content), which
+      // otherwise pushed Edit/Delete off the right edge.
+      fixed: 'right',
+      width: 150,
       render: (_, record) => (
         <div style={{ display: 'flex', gap: 8 }}>
           <Button
@@ -237,7 +247,7 @@ export default function UsersList() {
     ;(async () => {
       try {
         setAddCreditsConfirming(true)
-        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8000' : 'https://server.mailsfinder.com')
+        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8000' : 'https://api.mailsfinder.com')
         const bearer = token || localStorage.getItem('ADMIN_TOKEN') || ''
         if (!bearer) {
           logout()
@@ -331,7 +341,7 @@ export default function UsersList() {
         editForm.resetFields()
         return
       }
-      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8000' : 'https://server.mailsfinder.com')
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8000' : 'https://api.mailsfinder.com')
       const bearer = token || localStorage.getItem('ADMIN_TOKEN') || ''
       const url = `${API_BASE_URL}/api/admin/userManagement/users/${editingUser.id}`
       const res = await axios.patch(url, patch, {
@@ -411,7 +421,7 @@ export default function UsersList() {
       className: 'modal-danger mf-modal',
       cancelButtonProps: { className: 'modal-cancel' },
       onOk: async () => {
-        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8000' : 'https://server.mailsfinder.com')
+        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8000' : 'https://api.mailsfinder.com')
         const bearer = token || localStorage.getItem('ADMIN_TOKEN') || ''
         if (!bearer) {
           logout()
@@ -451,21 +461,29 @@ export default function UsersList() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <Typography.Title level={3} style={{ margin: 0 }}>Users</Typography.Title>
+    <div className="mf-page">
+      <PageHeader
+        title="Users"
+        subtitle={total > 0 ? `${total.toLocaleString()} users on the platform` : 'Manage accounts, plans and credits'}
+        actions={
+          <Button icon={<ReloadOutlined />} onClick={reloadUsersFresh} loading={loading}>
+            Refresh
+          </Button>
+        }
+      />
       {backendError && <Alert type="error" message={backendError} showIcon />}
 
-      <Card>
-        <Space wrap style={{ marginBottom: 12 }}>
+      <SectionCard title="Filters" description="Search hits the server; the rest narrow the current page.">
+        <div style={{ marginBottom: 14 }}>
           <Input.Search
             placeholder="Search by email or name"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             allowClear
-            style={{ width: 320 }}
+            style={{ maxWidth: 360, width: '100%' }}
           />
-        </Space>
-        <Form layout={isMobile ? 'vertical' : 'inline'} style={{ display: 'flex', gap: 12, flexWrap: 'wrap', width: '100%' }}>
+        </div>
+        <Form layout={isMobile ? 'vertical' : 'inline'} className="mf-filters">
           <Form.Item label="Plan">
             <Select
               style={{ width: isMobile ? '100%' : 160 }}
@@ -526,10 +544,16 @@ export default function UsersList() {
             />
           </Form.Item>
         </Form>
-      </Card>
+      </SectionCard>
 
-      <Card>
-        <div style={{ marginBottom: 12, display: 'flex', gap: 8 }}>
+      <SectionCard
+        title="All users"
+        description={
+          selectedRowKeys.length > 0
+            ? `${selectedRowKeys.length} selected`
+            : 'Select rows to adjust credits in bulk'
+        }
+        extra={
           <Button
             type="primary"
             disabled={!hasScope(admin.role, 'credits.adjust') || selectedRowKeys.length === 0}
@@ -537,11 +561,16 @@ export default function UsersList() {
           >
             Add credits (bulk)
           </Button>
-        </div>
+        }
+        noPadding
+      >
         {loading && filtered.length === 0 ? (
-          <Skeleton active paragraph={{ rows: 4 }} />
+          <div className="mf-card__body-pad">
+            <TableSkeleton rows={8} cols={6} />
+          </div>
         ) : (
           <Table<User>
+            className="mf-table"
             rowKey="id"
             dataSource={filtered}
             columns={columns}
@@ -567,6 +596,16 @@ export default function UsersList() {
             scroll={{ x: 'max-content' }}
             size="small"
             loading={loading}
+            locale={{
+              emptyText: (
+                <EmptyState
+                  compact
+                  icon={<TeamOutlined />}
+                  title="No users match these filters"
+                  hint="Clear the search or widen the filters above."
+                />
+              )
+            }}
             onRow={(record) => ({
               style: rowAccentStyle(record.plan as any, isDarkMode)
             })}
@@ -576,7 +615,7 @@ export default function UsersList() {
             }}
           />
         )}
-      </Card>
+      </SectionCard>
 
       <Modal
         title="Add credits (bulk)"
