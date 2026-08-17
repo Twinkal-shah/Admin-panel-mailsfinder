@@ -1,4 +1,5 @@
-import { DatePicker, Segmented } from 'antd'
+import { DatePicker, Segmented, Typography } from 'antd'
+import { CalendarOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
 dayjs.extend(utc)
@@ -10,13 +11,22 @@ export interface DateRange {
   preset: DatePreset
 }
 
+const PRESETS: DatePreset[] = ['Today', 'Yesterday', 'Last 7 Days', 'Last 30 Days', 'Custom Range']
+
+/** Compact labels so the segmented control fits on narrow screens. */
+const SHORT_LABEL: Record<DatePreset, string> = {
+  Today: 'Today',
+  Yesterday: 'Yesterday',
+  'Last 7 Days': '7D',
+  'Last 30 Days': '30D',
+  'Custom Range': 'Custom'
+}
+
 export default function DateFilter(props: {
   value: DateRange
   onChange: (range: DateRange) => void
 }) {
   const { RangePicker } = DatePicker
-
-  const presets: DatePreset[] = ['Today', 'Yesterday', 'Last 7 Days', 'Last 30 Days', 'Custom Range']
 
   function computeRange(preset: DatePreset): DateRange {
     const now = dayjs.utc()
@@ -58,16 +68,22 @@ export default function DateFilter(props: {
   }
 
   return (
-    <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', width: '100%' }}>
+    <div className="mf-datefilter">
+      <div className="mf-datefilter__label">
+        <CalendarOutlined />
+        <Typography.Text type="secondary">Period</Typography.Text>
+      </div>
       <Segmented
-        options={presets}
+        className="mf-datefilter__segmented"
+        options={PRESETS.map(p => ({ label: SHORT_LABEL[p], value: p }))}
         value={props.value.preset}
         onChange={(val) => onPresetChange(val as DatePreset)}
       />
       <RangePicker
+        className="mf-datefilter__picker"
         value={[dayjs(props.value.from), dayjs(props.value.to)]}
         onChange={onRangeChange}
-        style={{ minWidth: 240, flex: 1 }}
+        allowClear={false}
       />
     </div>
   )

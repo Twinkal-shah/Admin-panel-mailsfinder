@@ -3,26 +3,26 @@ import {
   Alert,
   Button,
   Card,
-  Empty,
   Form,
   Input,
   Modal,
   Popconfirm,
-  Result,
   Select,
-  Space,
   Table,
   Tag,
   Typography,
   message
 } from 'antd'
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table'
-import { CopyOutlined, ReloadOutlined } from '@ant-design/icons'
+import { ApiOutlined, CopyOutlined, ReloadOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import axios from 'axios'
 import { api } from '../utils/api'
 import { useAuthStore } from '../store/auth'
 import { hasScope } from '../store/rbac'
+import PageHeader from '../components/PageHeader'
+import SectionCard from '../components/SectionCard'
+import EmptyState from '../components/EmptyState'
 
 interface AdminApiKeyRow {
   _id: string
@@ -334,60 +334,64 @@ export default function ApiKeys() {
     showTotal: (t) => `Total ${t}`
   }
 
+  const pageActions = (
+    <>
+      <Button icon={<ReloadOutlined />} onClick={fetchKeys} loading={loading}>
+        Refresh
+      </Button>
+      <Button type="primary" disabled={!canManage} onClick={() => setCreateOpen(true)}>
+        Create key
+      </Button>
+    </>
+  )
+
   if (error && rows.length === 0) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <Typography.Title level={3} style={{ margin: 0 }}>API Keys</Typography.Title>
-        <Card>
-          <Result
-            status="error"
+      <div className="mf-page">
+        <PageHeader title="API Keys" subtitle="Issue and revoke programmatic access" actions={pageActions} />
+        <SectionCard>
+          <EmptyState
+            icon={<ApiOutlined />}
             title="Failed to load API keys"
-            subTitle={error}
-            extra={<Button type="primary" onClick={fetchKeys}>Retry</Button>}
+            hint={error}
+            action={
+              <Button type="primary" icon={<ReloadOutlined />} onClick={fetchKeys}>
+                Retry
+              </Button>
+            }
           />
-        </Card>
+        </SectionCard>
       </div>
     )
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-        <Typography.Title level={3} style={{ margin: 0 }}>API Keys</Typography.Title>
-        <Space>
-          <Button icon={<ReloadOutlined />} onClick={fetchKeys} loading={loading}>
-            Refresh
-          </Button>
-          <Button
-            type="primary"
-            disabled={!canManage}
-            onClick={() => setCreateOpen(true)}
-          >
-            Create
-          </Button>
-        </Space>
+    <div className="mf-page">
+      <PageHeader
+        title="API Keys"
+        subtitle={total > 0 ? `${total.toLocaleString()} keys issued` : 'Issue and revoke programmatic access'}
+        actions={pageActions}
+      />
+
+      <div className="mf-toolbar">
+        <Input.Search
+          placeholder="Search by email, name, or key prefix"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          allowClear
+          style={{ maxWidth: 360, flex: 1, minWidth: 220 }}
+        />
+        <Select
+          value={statusFilter}
+          onChange={(v) => setStatusFilter(v)}
+          options={STATUS_FILTERS as unknown as { value: StatusFilter; label: string }[]}
+          style={{ width: 160 }}
+        />
       </div>
 
-      <Card>
-        <Space wrap>
-          <Input.Search
-            placeholder="Search by email, name, or key prefix"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            allowClear
-            style={{ width: 320 }}
-          />
-          <Select
-            value={statusFilter}
-            onChange={(v) => setStatusFilter(v)}
-            options={STATUS_FILTERS as unknown as { value: StatusFilter; label: string }[]}
-            style={{ width: 160 }}
-          />
-        </Space>
-      </Card>
-
-      <Card>
+      <SectionCard title="All keys" noPadding>
         <Table<AdminApiKeyRow>
+          className="mf-table"
           rowKey="_id"
           dataSource={rows}
           columns={columns}
@@ -395,7 +399,16 @@ export default function ApiKeys() {
           pagination={pagination}
           scroll={{ x: 'max-content' }}
           size="small"
-          locale={{ emptyText: <Empty description="No API keys" /> }}
+          locale={{
+            emptyText: (
+              <EmptyState
+                compact
+                icon={<ApiOutlined />}
+                title="No API keys yet"
+                hint="Create a key to give a user programmatic access."
+              />
+            )
+          }}
           onChange={(p) => {
             const nextPage = p.current ?? 1
             const nextSize = p.pageSize ?? pageSize
@@ -407,7 +420,7 @@ export default function ApiKeys() {
             }
           }}
         />
-      </Card>
+      </SectionCard>
 
       <Modal
         title="Create API Key"

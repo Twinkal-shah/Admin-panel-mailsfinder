@@ -7,6 +7,11 @@ import { ApiKey, PLAN_DISPLAY_NAME, Purchase } from '../types/types'
 import { useAuthStore } from '../store/auth'
 import { hasScope } from '../store/rbac'
 import { mapUser } from '../utils/mappers'
+import PageHeader from '../components/PageHeader'
+import EmptyState from '../components/EmptyState'
+import { useIsDark } from '../ui/useIsDark'
+import { UserOutlined } from '@ant-design/icons'
+import { useNavigate } from 'react-router-dom'
 
 // Spec: monthly users have a 10k/day cap on the monthly bucket.
 const MONTHLY_DAILY_CAP = 10000
@@ -36,10 +41,29 @@ export default function UserDetail() {
   const [notesSaving, setNotesSaving] = useState(false)
   const [creditsLoading, setCreditsLoading] = useState(false)
   const [createLoading, setCreateLoading] = useState(false)
-  const isDarkMode = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'dark'
+  const isDarkMode = useIsDark()
   const [recentlyUpdatedIds, setRecentlyUpdatedIds] = useState<Set<string>>(new Set())
+  const navigate = useNavigate()
 
-  if (!user) return <Typography.Text>User not found</Typography.Text>
+  if (!user) {
+    return (
+      <div className="mf-page">
+        <PageHeader title="User Detail" />
+        <section className="mf-card">
+          <EmptyState
+            icon={<UserOutlined />}
+            title="User not found"
+            hint="This user isn't in the currently loaded list. Open them from the Users page."
+            action={
+              <Button type="primary" onClick={() => navigate('/users')}>
+                Back to Users
+              </Button>
+            }
+          />
+        </section>
+      </div>
+    )
+  }
 
   function authHeaders(): Record<string, string> {
     const bearer = token || localStorage.getItem('ADMIN_TOKEN') || ''
@@ -260,10 +284,16 @@ export default function UserDetail() {
   ]
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <Typography.Title level={3} style={{ margin: 0 }}>User Detail</Typography.Title>
+    <div className="mf-page">
+      <PageHeader
+        title={user.full_name || 'User Detail'}
+        subtitle={user.email}
+        actions={
+          <Button onClick={() => navigate('/users')}>Back to Users</Button>
+        }
+      />
 
-      <Row gutter={16}>
+      <Row gutter={[16, 16]}>
         <Col xs={24} md={12}>
           <Card title="Profile">
             <Descriptions column={1} bordered>
@@ -405,7 +435,7 @@ export default function UserDetail() {
         </div>
       </Card>
 
-      <Row gutter={16}>
+      <Row gutter={[16, 16]}>
         <Col xs={24} md={12}>
           <Card title="API Keys">
             <div style={{ marginBottom: 12, display: 'flex', gap: 8 }}>

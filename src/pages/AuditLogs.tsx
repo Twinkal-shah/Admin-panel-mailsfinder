@@ -1,14 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Button,
-  Card,
   DatePicker,
-  Empty,
   Form,
   Grid,
   Input,
   Popover,
-  Result,
   Row,
   Col,
   Select,
@@ -19,10 +16,13 @@ import {
   message
 } from 'antd'
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table'
-import { ReloadOutlined } from '@ant-design/icons'
+import { AuditOutlined, ReloadOutlined } from '@ant-design/icons'
 import dayjs, { Dayjs } from 'dayjs'
 import axios from 'axios'
 import { api } from '../utils/api'
+import PageHeader from '../components/PageHeader'
+import SectionCard from '../components/SectionCard'
+import EmptyState from '../components/EmptyState'
 
 interface AuditRow {
   id: string
@@ -286,36 +286,41 @@ export default function AuditLogs() {
 
   if (error) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-          <Typography.Title level={3} style={{ margin: 0 }}>Audit & Basic Logs</Typography.Title>
-        </div>
-        <Card>
-          <Result
-            status="error"
+      <div className="mf-page">
+        <PageHeader title="Audit & Basic Logs" subtitle="Every privileged admin action, recorded" />
+        <SectionCard>
+          <EmptyState
+            icon={<AuditOutlined />}
             title="Failed to load audit logs"
-            subTitle={error}
-            extra={
-              <Button type="primary" onClick={fetchAudits}>
+            hint={error}
+            action={
+              <Button type="primary" icon={<ReloadOutlined />} onClick={fetchAudits}>
                 Retry
               </Button>
             }
           />
-        </Card>
+        </SectionCard>
       </div>
     )
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-        <Typography.Title level={3} style={{ margin: 0 }}>Audit & Basic Logs</Typography.Title>
-        <Button icon={<ReloadOutlined />} onClick={fetchAudits} loading={loading}>
-          Refresh
-        </Button>
-      </div>
+    <div className="mf-page">
+      <PageHeader
+        title="Audit & Basic Logs"
+        subtitle={
+          total > 0
+            ? `${total.toLocaleString()} recorded actions`
+            : 'Every privileged admin action, recorded'
+        }
+        actions={
+          <Button icon={<ReloadOutlined />} onClick={fetchAudits} loading={loading}>
+            Refresh
+          </Button>
+        }
+      />
 
-      <Card>
+      <SectionCard title="Filters">
         <Form layout="vertical">
           <Row gutter={[12, 12]}>
             <Col xs={24} md={8}>
@@ -383,10 +388,11 @@ export default function AuditLogs() {
             </Col>
           </Row>
         </Form>
-      </Card>
+      </SectionCard>
 
-      <Card>
+      <SectionCard title="Log entries" noPadding>
         <Table<AuditRow>
+          className="mf-table"
           rowKey="id"
           dataSource={rows}
           columns={columns}
@@ -395,7 +401,14 @@ export default function AuditLogs() {
           scroll={{ x: 'max-content' }}
           size="small"
           locale={{
-            emptyText: <Empty description="No audit entries match these filters" />
+            emptyText: (
+              <EmptyState
+                compact
+                icon={<AuditOutlined />}
+                title="No audit entries match these filters"
+                hint="Reset the filters or widen the time range."
+              />
+            )
           }}
           onChange={(p) => {
             const nextPage = p.current ?? 1
@@ -408,7 +421,7 @@ export default function AuditLogs() {
             }
           }}
         />
-      </Card>
+      </SectionCard>
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useDataStore } from '../store/data'
 import {
+  Alert,
   Button,
   Card,
   Form,
@@ -15,12 +16,17 @@ import {
   message
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
+import { FileTextOutlined, PlusOutlined } from '@ant-design/icons'
 import ReactMarkdown from 'react-markdown'
 import dayjs from 'dayjs'
 import { ContentItem } from '../types/types'
 import { useAuthStore } from '../store/auth'
 import { hasScope } from '../store/rbac'
 import { mapContent } from '../utils/mappers'
+import PageHeader from '../components/PageHeader'
+import SectionCard from '../components/SectionCard'
+import EmptyState from '../components/EmptyState'
+import { TableSkeleton } from '../components/skeletons'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8000' : 'https://api.mailsfinder.com')
 
@@ -266,17 +272,27 @@ export default function CMSLite() {
   ]
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-        <Typography.Title level={3} style={{ margin: 0 }}>Content Management</Typography.Title>
-        <Button type="primary" onClick={startCreate}>Create</Button>
-      </div>
+    <div className="mf-page">
+      <PageHeader
+        title="Content Management"
+        subtitle={
+          contents.length > 0
+            ? `${contents.length.toLocaleString()} items · ${contents.filter(c => c.published).length} published`
+            : 'Create and publish marketing content'
+        }
+        actions={
+          <Button type="primary" icon={<PlusOutlined />} onClick={startCreate}>
+            Create
+          </Button>
+        }
+      />
 
-      {backendError && (
-        <Typography.Text type="danger">{backendError}</Typography.Text>
-      )}
+      {backendError && <Alert type="error" message={backendError} showIcon />}
 
-      <Card title={editing?.id ? 'Edit content' : 'Create content'}>
+      <SectionCard
+        title={editing?.id ? 'Edit content' : 'Create content'}
+        description={editing?.id ? `Editing “${editing.title}”` : 'Fill in the fields and save to add a new item.'}
+      >
         <Form
           layout="vertical"
           form={form}
@@ -307,10 +323,11 @@ export default function CMSLite() {
             <ReactMarkdown>{editing.body}</ReactMarkdown>
           </Card>
         )}
-      </Card>
+      </SectionCard>
 
-      <Card
-        title="Content List"
+      <SectionCard
+        title="Content list"
+        description="Everything currently stored, drafts included."
         extra={
           <Select
             value={statusFilter}
@@ -323,17 +340,34 @@ export default function CMSLite() {
             ]}
           />
         }
-        loading={loading && contents.length === 0}
+        noPadding
       >
-        <Table<ContentItem>
-          rowKey="id"
-          dataSource={filteredContents}
-          columns={columns}
-          pagination={{ pageSize: 25 }}
-          size="small"
-          scroll={{ x: 'max-content' }}
-        />
-      </Card>
+        {loading && contents.length === 0 ? (
+          <div className="mf-card__body-pad">
+            <TableSkeleton rows={6} cols={4} />
+          </div>
+        ) : (
+          <Table<ContentItem>
+            className="mf-table"
+            rowKey="id"
+            dataSource={filteredContents}
+            columns={columns}
+            pagination={filteredContents.length > 25 ? { pageSize: 25 } : false}
+            size="small"
+            scroll={{ x: 'max-content' }}
+            locale={{
+              emptyText: (
+                <EmptyState
+                  compact
+                  icon={<FileTextOutlined />}
+                  title={statusFilter === 'all' ? 'No content yet' : `No ${statusFilter} content`}
+                  hint="Use the form above to create your first item."
+                />
+              )
+            }}
+          />
+        )}
+      </SectionCard>
     </div>
   )
 }

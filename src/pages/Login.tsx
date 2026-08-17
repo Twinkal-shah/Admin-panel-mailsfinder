@@ -1,4 +1,4 @@
-import { Card, Form, Input, Button, Typography, Alert } from 'antd'
+import { Form, Input, Button, Typography, Alert } from 'antd'
 import { useState } from 'react'
 import { useAuthStore } from '../store/auth'
 import type { Role } from '../types/types'
@@ -59,26 +59,43 @@ export default function Login() {
   }
 
   return (
-    <div style={{ display: 'grid', placeItems: 'center', height: '100vh' }}>
-      <Card title="Admin Login" style={{ width: '100%', maxWidth: 420, margin: '0 16px' }}>
-        <Typography.Paragraph type="secondary" style={{ marginBottom: 16 }}>
-          Admin access required (JWT/session).
-        </Typography.Paragraph>
-        {error && <Alert type="error" message={error} style={{ marginBottom: 12 }} />}
-        <Form layout="vertical" onFinish={onFinish} initialValues={{}}>
+    <div className="mf-login">
+      <div className="mf-login__panel">
+        <div className="mf-login__brand">
+          <span className="mf-brand__mark bg-brand-gradient" style={{ width: 40, height: 40 }}>
+            MF
+          </span>
+          <div className="mf-brand__text">
+            <span className="mf-brand__name" style={{ fontSize: 17 }}>MailsFinder</span>
+            <span className="mf-brand__sub">Admin Panel</span>
+          </div>
+        </div>
+
+        <div className="mf-login__head">
+          <Typography.Title level={3} style={{ margin: 0, fontSize: 22 }}>
+            Sign in
+          </Typography.Title>
+          <Typography.Text type="secondary" style={{ fontSize: 13.5 }}>
+            Admin access required (JWT/session).
+          </Typography.Text>
+        </div>
+
+        {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 16 }} />}
+
+        <Form layout="vertical" onFinish={onFinish} initialValues={{}} requiredMark={false}>
           <Form.Item label="Email" name="email" rules={[{ required: true }]}>
-            <Input placeholder="admin@test.com" />
+            <Input size="large" placeholder="admin@test.com" autoComplete="username" />
           </Form.Item>
           <Form.Item label="Password" name="password" rules={[{ required: true }]}>
-            <Input.Password placeholder="Your password" />
+            <Input.Password size="large" placeholder="Your password" autoComplete="current-password" />
           </Form.Item>
-          <Form.Item>
-            <Button type="primary" htmlType="submit" block disabled={loading}>
-              Login
+          <Form.Item style={{ marginBottom: 0, marginTop: 24 }}>
+            <Button type="primary" size="large" htmlType="submit" block loading={loading}>
+              Sign in
             </Button>
           </Form.Item>
         </Form>
-      </Card>
+      </div>
     </div>
   )
 }
