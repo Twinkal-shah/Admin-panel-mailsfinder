@@ -238,16 +238,15 @@ export default function LayoutShell() {
       </Sidebar>
 
       <SidebarInset>
+        {/* No title here on purpose. PageHeader inside each route owns the
+            page title (plus its subtitle and actions), so repeating it in the
+            top bar would show the same words twice and fight for the eye. */}
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />
-          <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm">
-            <span className="text-muted-foreground">Admin</span>
-            <span aria-hidden="true" className="text-muted-foreground/60">
-              /
-            </span>
-            <h1 className="font-medium">{pageTitle}</h1>
-          </nav>
+          <span className="sr-only" aria-live="polite">
+            {pageTitle}
+          </span>
           <div className="ml-auto flex items-center gap-2">
             <ThemeToggle />
           </div>

@@ -1,25 +1,51 @@
-import { Form, Input, Button, Typography, Alert } from 'antd'
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import { Eye, EyeOff, Loader2, OctagonX } from 'lucide-react'
+
 import { useAuthStore } from '../store/auth'
 import type { Role } from '../types/types'
-import { useNavigate } from 'react-router-dom'
+import { API_BASE_URL } from '../utils/api'
+import { Alert, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+
+const schema = z.object({
+  email: z.string().min(1, 'Email is required').email('Enter a valid email address'),
+  password: z.string().min(1, 'Password is required')
+})
+
+type FormValues = z.infer<typeof schema>
 
 export default function Login() {
   const { login } = useAuthStore()
   const navigate = useNavigate()
   const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState<boolean>(false)
+  const [showPassword, setShowPassword] = useState(false)
 
-  async function onFinish(values: any) {
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting }
+  } = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: { email: '', password: '' }
+  })
+
+  /* Request, token extraction and store call are unchanged from the Antd
+   * version. react-hook-form replaced how the field values are collected and
+   * validated; it did not touch what gets sent or what is done with the reply. */
+  async function onFinish(values: FormValues) {
     setError(null)
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8000' : 'https://api.mailsfinder.com')
-    setLoading(true)
     try {
-      const email = String(values.email || '').trim().toLowerCase()
+      const email = values.email.trim().toLowerCase()
       const res = await fetch(`${API_BASE_URL}/api/admin/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ email, password: String(values.password || '') })
+        body: JSON.stringify({ email, password: values.password })
       })
       if (!res.ok) {
         let msg = `HTTP ${res.status}`
@@ -39,9 +65,7 @@ export default function Login() {
         body.data?.accessToken
       if (!token) throw new Error('Missing ADMIN_TOKEN in response')
       const refreshToken: string | undefined =
-        body.data?.refreshToken ||
-        body.refreshToken ||
-        body.refresh_token
+        body.data?.refreshToken || body.refreshToken || body.refresh_token
       const adminData = body.data?.admin
       const admin = {
         id: String(adminData?._id ?? adminData?.id ?? 'admin-1'),
@@ -51,50 +75,92 @@ export default function Login() {
       }
       login(admin, token, refreshToken)
       navigate('/', { replace: true })
-    } catch (e: any) {
-      setError(e?.message || 'Login failed')
-    } finally {
-      setLoading(false)
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Login failed')
     }
   }
 
   return (
-    <div className="mf-login">
-      <div className="mf-login__panel">
-        <div className="mf-login__brand">
-          <span className="mf-brand__mark bg-brand-gradient" style={{ width: 40, height: 40 }}>
+    <div className="flex min-h-svh flex-col items-center justify-center gap-6 bg-background p-6 md:p-10">
+      <div className="flex w-full max-w-sm flex-col gap-6">
+        <div className="flex items-center gap-2.5 self-center">
+          <div className="flex aspect-square size-9 items-center justify-center rounded-lg bg-primary text-sm font-semibold text-primary-foreground">
             MF
-          </span>
-          <div className="mf-brand__text">
-            <span className="mf-brand__name" style={{ fontSize: 17 }}>MailsFinder</span>
-            <span className="mf-brand__sub">Admin Panel</span>
+          </div>
+          <div className="grid leading-tight">
+            <span className="text-sm font-semibold">MailsFinder</span>
+            <span className="text-xs text-muted-foreground">Admin Panel</span>
           </div>
         </div>
 
-        <div className="mf-login__head">
-          <Typography.Title level={3} style={{ margin: 0, fontSize: 22 }}>
-            Sign in
-          </Typography.Title>
-          <Typography.Text type="secondary" style={{ fontSize: 13.5 }}>
-            Admin access required (JWT/session).
-          </Typography.Text>
+        <div className="flex flex-col gap-1.5 text-center">
+          <h1 className="font-heading text-2xl font-semibold tracking-tight">Sign in</h1>
+          <p className="text-sm text-muted-foreground">Admin access required.</p>
         </div>
 
-        {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 16 }} />}
+        {error && (
+          <Alert variant="destructive">
+            <OctagonX />
+            <AlertTitle>{error}</AlertTitle>
+          </Alert>
+        )}
 
-        <Form layout="vertical" onFinish={onFinish} initialValues={{}} requiredMark={false}>
-          <Form.Item label="Email" name="email" rules={[{ required: true }]}>
-            <Input size="large" placeholder="admin@test.com" autoComplete="username" />
-          </Form.Item>
-          <Form.Item label="Password" name="password" rules={[{ required: true }]}>
-            <Input.Password size="large" placeholder="Your password" autoComplete="current-password" />
-          </Form.Item>
-          <Form.Item style={{ marginBottom: 0, marginTop: 24 }}>
-            <Button type="primary" size="large" htmlType="submit" block loading={loading}>
-              Sign in
-            </Button>
-          </Form.Item>
-        </Form>
+        <form onSubmit={handleSubmit(onFinish)} className="flex flex-col gap-4" noValidate>
+          <div className="grid gap-1.5">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              autoComplete="username"
+              autoFocus
+              aria-invalid={!!errors.email}
+              aria-describedby={errors.email ? 'email-error' : undefined}
+              className="h-9"
+              {...register('email')}
+            />
+            {errors.email && (
+              <p id="email-error" className="text-xs text-destructive">
+                {errors.email.message}
+              </p>
+            )}
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label htmlFor="password">Password</Label>
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
+                aria-invalid={!!errors.password}
+                aria-describedby={errors.password ? 'password-error' : undefined}
+                className="h-9 pr-9"
+                {...register('password')}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="absolute top-1 right-1"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                aria-pressed={showPassword}
+                onClick={() => setShowPassword((v) => !v)}
+              >
+                {showPassword ? <EyeOff /> : <Eye />}
+              </Button>
+            </div>
+            {errors.password && (
+              <p id="password-error" className="text-xs text-destructive">
+                {errors.password.message}
+              </p>
+            )}
+          </div>
+
+          <Button type="submit" size="lg" className="mt-2 w-full" disabled={isSubmitting}>
+            {isSubmitting && <Loader2 className="animate-spin" />}
+            {isSubmitting ? 'Signing in…' : 'Sign in'}
+          </Button>
+        </form>
       </div>
     </div>
   )

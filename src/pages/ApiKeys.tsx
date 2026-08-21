@@ -1,28 +1,64 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  Alert,
-  Button,
-  Card,
-  Form,
-  Input,
-  Modal,
-  Popconfirm,
-  Select,
-  Table,
-  Tag,
-  Typography,
-  message
-} from 'antd'
-import type { ColumnsType, TablePaginationConfig } from 'antd/es/table'
-import { ApiOutlined, CopyOutlined, ReloadOutlined } from '@ant-design/icons'
-import dayjs from 'dayjs'
 import axios from 'axios'
+import dayjs from 'dayjs'
+import { toast } from 'sonner'
+import {
+  Check,
+  ChevronsUpDown,
+  Copy,
+  KeyRound,
+  Loader2,
+  OctagonX,
+  RotateCw,
+  Search,
+  TriangleAlert
+} from 'lucide-react'
+
 import { api } from '../utils/api'
 import { useAuthStore } from '../store/auth'
 import { hasScope } from '../store/rbac'
 import PageHeader from '../components/PageHeader'
 import SectionCard from '../components/SectionCard'
 import EmptyState from '../components/EmptyState'
+import { DataTable, type DataTableColumn } from '../components/global/data-table'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from '@/components/ui/alert-dialog'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandItem,
+  CommandList
+} from '@/components/ui/command'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
 
 interface AdminApiKeyRow {
   _id: string
@@ -75,21 +111,28 @@ function copyToClipboard(text: string) {
   if (!text) return
   navigator.clipboard
     ?.writeText(text)
-    .then(() => message.success('Copied'))
-    .catch(() => message.error('Copy failed'))
+    .then(() => toast.success('Copied'))
+    .catch(() => toast.error('Copy failed'))
 }
 
-function MonoCell({ value, fullOnCopy = true }: { value?: string; fullOnCopy?: boolean }) {
-  if (!value) return <Typography.Text type="secondary">-</Typography.Text>
+/**
+ * Click-to-copy monospace cell. A real <button>, so it is keyboard reachable
+ * and announced — previously this was an onClick on a text span with no role,
+ * tabindex or accessible name.
+ */
+function MonoCell({ value }: { value?: string }) {
+  if (!value) return <span className="text-muted-foreground">—</span>
   return (
-    <Typography.Text
-      code
-      onClick={() => copyToClipboard(fullOnCopy ? value : value)}
-      style={{ cursor: 'pointer', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}
+    <button
+      type="button"
+      onClick={() => copyToClipboard(value)}
       title={`${value} (click to copy)`}
+      aria-label={`Copy ${value}`}
+      className="group/copy -mx-1 inline-flex max-w-full items-center gap-1.5 rounded-md px-1 py-0.5 font-mono text-xs outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
     >
-      {value}
-    </Typography.Text>
+      <span className="truncate">{value}</span>
+      <Copy className="size-3 shrink-0 opacity-0 transition-opacity group-hover/copy:opacity-60 group-focus-visible/copy:opacity-60" />
+    </button>
   )
 }
 
@@ -111,12 +154,15 @@ export default function ApiKeys() {
   const [createOpen, setCreateOpen] = useState(false)
   const [creating, setCreating] = useState(false)
   const [createUserId, setCreateUserId] = useState<string | undefined>(undefined)
+  const [createUserLabel, setCreateUserLabel] = useState<string>('')
   const [createName, setCreateName] = useState<string>('')
   const [userOptions, setUserOptions] = useState<UserOption[]>([])
   const [userSearchLoading, setUserSearchLoading] = useState(false)
+  const [userPickerOpen, setUserPickerOpen] = useState(false)
 
   const [revealKey, setRevealKey] = useState<string | null>(null)
   const [revokingId, setRevokingId] = useState<string | null>(null)
+  const [pendingRevoke, setPendingRevoke] = useState<AdminApiKeyRow | null>(null)
 
   const userSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -153,7 +199,7 @@ export default function ApiKeys() {
         return
       }
       const msg =
-        (axios.isAxiosError(e) && (e.response?.data as any)?.message) ||
+        (axios.isAxiosError(e) && (e.response?.data as { message?: string })?.message) ||
         (e instanceof Error ? e.message : 'Failed to load API keys')
       setError(msg)
     } finally {
@@ -182,9 +228,10 @@ export default function ApiKeys() {
         const res = await api.get('/api/admin/userManagement/getAllUsers', {
           params: { page: 1, pageSize: 10, search: value }
         })
-        const list = Array.isArray((res.data as any)?.data) ? (res.data as any).data : []
+        const raw = (res.data as { data?: unknown })?.data
+        const list = Array.isArray(raw) ? (raw as Record<string, unknown>[]) : []
         setUserOptions(
-          list.map((u: any) => ({
+          list.map((u) => ({
             value: String(u._id ?? u.id),
             label: `${u.full_name ?? u.name ?? '(no name)'} <${u.email ?? '?'}>`
           }))
@@ -197,9 +244,16 @@ export default function ApiKeys() {
     }, 300)
   }
 
+  function resetCreateForm() {
+    setCreateUserId(undefined)
+    setCreateUserLabel('')
+    setCreateName('')
+    setUserOptions([])
+  }
+
   const onCreateSubmit = async () => {
     if (!createUserId) {
-      message.warning('Pick a user')
+      toast.warning('Pick a user')
       return
     }
     setCreating(true)
@@ -210,20 +264,18 @@ export default function ApiKeys() {
       const res = await api.post<CreateResponse>('/api/admin/apikeys', body)
       const apiKey = res.data?.data?.apiKey
       if (!apiKey) {
-        message.error('Backend did not return the created key')
+        toast.error('Backend did not return the created key')
         return
       }
       setCreateOpen(false)
-      setCreateUserId(undefined)
-      setCreateName('')
-      setUserOptions([])
+      resetCreateForm()
       setRevealKey(apiKey)
       await fetchKeys()
     } catch (e) {
       const msg =
-        (axios.isAxiosError(e) && (e.response?.data as any)?.message) ||
+        (axios.isAxiosError(e) && (e.response?.data as { message?: string })?.message) ||
         (e instanceof Error ? e.message : 'Failed to create API key')
-      message.error(msg)
+      toast.error(msg)
     } finally {
       setCreating(false)
     }
@@ -233,285 +285,364 @@ export default function ApiKeys() {
     setRevokingId(row._id)
     try {
       await api.delete(`/api/admin/apikeys/${row._id}`)
-      message.success('API key revoked')
+      toast.success('API key revoked')
       await fetchKeys()
     } catch (e) {
       const msg =
-        (axios.isAxiosError(e) && (e.response?.data as any)?.message) ||
+        (axios.isAxiosError(e) && (e.response?.data as { message?: string })?.message) ||
         (e instanceof Error ? e.message : 'Revoke failed')
-      message.error(msg)
+      toast.error(msg)
     } finally {
       setRevokingId(null)
     }
   }
 
-  const columns: ColumnsType<AdminApiKeyRow> = useMemo(
+  const columns: DataTableColumn<AdminApiKeyRow>[] = useMemo(
     () => [
       {
-        title: 'Key Prefix',
-        dataIndex: 'keyPrefix',
         key: 'keyPrefix',
+        title: 'Key prefix',
         width: 180,
-        render: (v: string) => <MonoCell value={v} />
+        render: (row) => <MonoCell value={row.keyPrefix} />
       },
       {
-        title: 'Owner',
         key: 'owner',
-        render: (_, row) => (
-          <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.3 }}>
-            <Typography.Text>{row.userEmail || '-'}</Typography.Text>
+        title: 'Owner',
+        render: (row) => (
+          <div className="flex flex-col leading-tight">
+            <span>{row.userEmail || '—'}</span>
             {row.userFullName && (
-              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                {row.userFullName}
-              </Typography.Text>
+              <span className="text-xs text-muted-foreground">{row.userFullName}</span>
             )}
           </div>
         )
       },
       {
-        title: 'Status',
-        dataIndex: 'isActive',
         key: 'isActive',
+        title: 'Status',
         width: 120,
-        render: (active: boolean) =>
-          active ? <Tag color="green">Active</Tag> : <Tag color="red">Revoked</Tag>
+        render: (row) =>
+          row.isActive ? (
+            <Badge variant="secondary">Active</Badge>
+          ) : (
+            <Badge variant="destructive">Revoked</Badge>
+          )
       },
       {
-        title: 'Created',
-        dataIndex: 'createdAt',
         key: 'createdAt',
+        title: 'Created',
         width: 140,
-        render: (d: string) => (d ? dayjs(d).format('MMM D, YYYY') : '-')
+        hideOnMobile: true,
+        render: (row) => (
+          <span className="text-muted-foreground">
+            {row.createdAt ? dayjs(row.createdAt).format('MMM D, YYYY') : '—'}
+          </span>
+        )
       },
       {
-        title: 'Last Used',
-        dataIndex: 'lastUsedAt',
         key: 'lastUsedAt',
-        width: 160,
-        render: (d?: string) => (d ? dayjs(d).format('MMM D, YYYY h:mm A') : '-')
+        title: 'Last used',
+        width: 170,
+        hideOnMobile: true,
+        render: (row) => (
+          <span className="text-muted-foreground">
+            {row.lastUsedAt ? dayjs(row.lastUsedAt).format('MMM D, YYYY h:mm A') : 'Never'}
+          </span>
+        )
       },
       {
-        title: 'Usage',
-        dataIndex: 'usageCount',
         key: 'usageCount',
+        title: 'Calls',
         width: 90,
-        render: (n?: number) => (typeof n === 'number' ? n : 0)
+        align: 'right',
+        hideOnMobile: true,
+        render: (row) => (
+          <span className="tabular-nums">{(row.usageCount ?? 0).toLocaleString()}</span>
+        )
       },
       {
-        title: 'Actions',
         key: 'actions',
-        width: 140,
-        render: (_, row) => (
-          <Popconfirm
-            title="Revoke this API key?"
-            description="This cannot be undone."
-            okText="Revoke"
-            okButtonProps={{ danger: true }}
-            onConfirm={() => onRevoke(row)}
-            disabled={!canManage || !row.isActive}
+        title: 'Actions',
+        width: 120,
+        fixed: 'right',
+        render: (row) => (
+          <Button
+            variant="destructive"
+            size="sm"
+            disabled={!canManage || !row.isActive || revokingId === row._id}
+            onClick={() => setPendingRevoke(row)}
           >
-            <Button
-              danger
-              size="small"
-              disabled={!canManage || !row.isActive}
-              loading={revokingId === row._id}
-            >
-              Revoke
-            </Button>
-          </Popconfirm>
+            {revokingId === row._id && <Loader2 className="animate-spin" />}
+            Revoke
+          </Button>
         )
       }
     ],
     [canManage, revokingId]
   )
 
-  const pagination: TablePaginationConfig = {
-    current: page,
-    pageSize,
-    total,
-    showSizeChanger: true,
-    pageSizeOptions: ['25', '50', '100', '200'],
-    showTotal: (t) => `Total ${t}`
-  }
-
   const pageActions = (
     <>
-      <Button icon={<ReloadOutlined />} onClick={fetchKeys} loading={loading}>
+      <Button variant="outline" onClick={fetchKeys} disabled={loading}>
+        <RotateCw className={loading ? 'animate-spin' : undefined} />
         Refresh
       </Button>
-      <Button type="primary" disabled={!canManage} onClick={() => setCreateOpen(true)}>
+      <Button disabled={!canManage} onClick={() => setCreateOpen(true)}>
+        <KeyRound />
         Create key
       </Button>
     </>
   )
 
-  if (error && rows.length === 0) {
-    return (
-      <div className="mf-page">
-        <PageHeader title="API Keys" subtitle="Issue and revoke programmatic access" actions={pageActions} />
-        <SectionCard>
-          <EmptyState
-            icon={<ApiOutlined />}
-            title="Failed to load API keys"
-            hint={error}
-            action={
-              <Button type="primary" icon={<ReloadOutlined />} onClick={fetchKeys}>
-                Retry
-              </Button>
-            }
-          />
-        </SectionCard>
-      </div>
-    )
-  }
-
   return (
-    <div className="mf-page">
+    <div className="flex flex-col gap-5">
       <PageHeader
         title="API Keys"
-        subtitle={total > 0 ? `${total.toLocaleString()} keys issued` : 'Issue and revoke programmatic access'}
+        subtitle={
+          total > 0 ? `${total.toLocaleString()} keys issued` : 'Issue and revoke programmatic access'
+        }
         actions={pageActions}
       />
 
-      <div className="mf-toolbar">
-        <Input.Search
-          placeholder="Search by email, name, or key prefix"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          allowClear
-          style={{ maxWidth: 360, flex: 1, minWidth: 220 }}
-        />
-        <Select
-          value={statusFilter}
-          onChange={(v) => setStatusFilter(v)}
-          options={STATUS_FILTERS as unknown as { value: StatusFilter; label: string }[]}
-          style={{ width: 160 }}
-        />
-      </div>
+      {/* Error is scoped to the results region: the search and filter stay
+          mounted and usable, so a failed query can be recovered by narrowing
+          it rather than only by retrying the same one. */}
+      {error && (
+        <Alert variant="destructive">
+          <OctagonX />
+          <AlertTitle>Couldn’t load API keys</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       <SectionCard title="All keys" noPadding>
-        <Table<AdminApiKeyRow>
-          className="mf-table"
+        <DataTable<AdminApiKeyRow>
+          caption="API keys"
           rowKey="_id"
-          dataSource={rows}
+          rows={rows}
           columns={columns}
           loading={loading}
-          pagination={pagination}
-          scroll={{ x: 'max-content' }}
-          size="small"
-          locale={{
-            emptyText: (
-              <EmptyState
-                compact
-                icon={<ApiOutlined />}
-                title="No API keys yet"
-                hint="Create a key to give a user programmatic access."
-              />
-            )
-          }}
-          onChange={(p) => {
-            const nextPage = p.current ?? 1
-            const nextSize = p.pageSize ?? pageSize
-            if (nextSize !== pageSize) {
-              setPageSize(nextSize)
-              setPage(1)
-            } else {
-              setPage(nextPage)
+          size="sm"
+          pagination={{
+            page,
+            pageSize,
+            total,
+            onChange: (nextPage, nextSize) => {
+              if (nextSize !== pageSize) {
+                setPageSize(nextSize)
+                setPage(1)
+              } else {
+                setPage(nextPage)
+              }
             }
           }}
+          toolbar={
+            <div className="flex flex-wrap items-center gap-2 px-4">
+              <div className="relative min-w-56 flex-1 sm:max-w-sm">
+                <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  className="pl-8"
+                  placeholder="Search by email, name, or key prefix"
+                  aria-label="Search API keys"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+              <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
+                <SelectTrigger className="w-40" aria-label="Filter by status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUS_FILTERS.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          }
+          empty={
+            <EmptyState
+              compact
+              icon={<KeyRound />}
+              title={
+                debouncedSearch || statusFilter !== 'all'
+                  ? 'No keys match these filters'
+                  : 'No API keys yet'
+              }
+              hint={
+                debouncedSearch || statusFilter !== 'all'
+                  ? 'Clear the search or widen the status filter.'
+                  : 'Create a key to give a user programmatic access.'
+              }
+            />
+          }
         />
       </SectionCard>
 
-      <Modal
-        title="Create API Key"
+      {/* Create key */}
+      <Dialog
         open={createOpen}
-        onCancel={() => {
+        onOpenChange={(o) => {
           if (creating) return
-          setCreateOpen(false)
-          setCreateUserId(undefined)
-          setCreateName('')
-          setUserOptions([])
+          setCreateOpen(o)
+          if (!o) resetCreateForm()
         }}
-        onOk={onCreateSubmit}
-        confirmLoading={creating}
-        okText="Create"
-        className="mf-modal"
       >
-        <Form layout="vertical">
-          <Form.Item label="User" required>
-            <Select
-              showSearch
-              placeholder="Type a name or email..."
-              value={createUserId}
-              onChange={(v) => setCreateUserId(v)}
-              onSearch={onUserSearch}
-              filterOption={false}
-              loading={userSearchLoading}
-              options={userOptions}
-              notFoundContent={userSearchLoading ? 'Searching…' : 'No matches'}
-              allowClear
-            />
-          </Form.Item>
-          <Form.Item
-            label="Name (optional)"
-            help="Internal label, max 64 chars"
-          >
-            <Input
-              value={createName}
-              onChange={(e) => setCreateName(e.target.value.slice(0, 64))}
-              placeholder="e.g. Mobile app integration"
-              maxLength={64}
-            />
-          </Form.Item>
-        </Form>
-      </Modal>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create API key</DialogTitle>
+            <DialogDescription>
+              The key is shown once, immediately after creation.
+            </DialogDescription>
+          </DialogHeader>
 
-      <Modal
-        title="API Key created"
-        open={!!revealKey}
-        onCancel={() => setRevealKey(null)}
-        footer={[
-          <Button key="close" type="primary" onClick={() => setRevealKey(null)}>
-            Done
-          </Button>
-        ]}
-        className="mf-modal"
-      >
-        <Alert
-          type="warning"
-          showIcon
-          message="Save this key now"
-          description="For security, it won't be shown again here."
-          style={{ marginBottom: 12 }}
-        />
-        <div
-          style={{
-            background: 'rgba(0,0,0,0.04)',
-            padding: 12,
-            borderRadius: 6,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 12
-          }}
-        >
-          <Typography.Text
-            code
-            style={{
-              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-              wordBreak: 'break-all'
-            }}
-          >
-            {revealKey}
-          </Typography.Text>
-          <Button
-            icon={<CopyOutlined />}
-            onClick={() => revealKey && copyToClipboard(revealKey)}
-          >
-            Copy
-          </Button>
-        </div>
-      </Modal>
+          <div className="grid gap-4">
+            <div className="grid gap-1.5">
+              <Label htmlFor="apikey-user">User</Label>
+              {/* Searchable combobox: shadcn Select has no async search, so this
+                  is Popover + Command, the upstream pattern for the job. */}
+              <Popover open={userPickerOpen} onOpenChange={setUserPickerOpen}>
+                <PopoverTrigger
+                  render={
+                    <Button
+                      id="apikey-user"
+                      variant="outline"
+                      aria-expanded={userPickerOpen}
+                      className="w-full justify-between font-normal"
+                    />
+                  }
+                >
+                  <span className={createUserLabel ? 'truncate' : 'truncate text-muted-foreground'}>
+                    {createUserLabel || 'Type a name or email…'}
+                  </span>
+                  <ChevronsUpDown className="opacity-50" />
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-(--anchor-width) p-0">
+                  <Command shouldFilter={false}>
+                    <CommandInput placeholder="Search users…" onValueChange={onUserSearch} />
+                    <CommandList>
+                      {userSearchLoading ? (
+                        <div className="flex items-center gap-2 px-3 py-4 text-sm text-muted-foreground">
+                          <Loader2 className="size-3.5 animate-spin" />
+                          Searching…
+                        </div>
+                      ) : (
+                        <CommandEmpty>No matches.</CommandEmpty>
+                      )}
+                      {userOptions.map((opt) => (
+                        <CommandItem
+                          key={opt.value}
+                          value={opt.value}
+                          onSelect={() => {
+                            setCreateUserId(opt.value)
+                            setCreateUserLabel(opt.label)
+                            setUserPickerOpen(false)
+                          }}
+                        >
+                          <Check
+                            className={createUserId === opt.value ? 'opacity-100' : 'opacity-0'}
+                          />
+                          <span className="truncate">{opt.label}</span>
+                        </CommandItem>
+                      ))}
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="grid gap-1.5">
+              <Label htmlFor="apikey-name">Name (optional)</Label>
+              <Input
+                id="apikey-name"
+                value={createName}
+                onChange={(e) => setCreateName(e.target.value.slice(0, 64))}
+                placeholder="e.g. Mobile app integration"
+                maxLength={64}
+              />
+              <p className="text-xs text-muted-foreground">Internal label, max 64 characters.</p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setCreateOpen(false)
+                resetCreateForm()
+              }}
+              disabled={creating}
+            >
+              Cancel
+            </Button>
+            <Button onClick={onCreateSubmit} disabled={creating || !createUserId}>
+              {creating && <Loader2 className="animate-spin" />}
+              Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* One-time key reveal */}
+      <Dialog open={!!revealKey} onOpenChange={(o) => !o && setRevealKey(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>API key created</DialogTitle>
+          </DialogHeader>
+
+          <Alert>
+            <TriangleAlert />
+            <AlertTitle>Save this key now</AlertTitle>
+            <AlertDescription>For security, it won’t be shown again here.</AlertDescription>
+          </Alert>
+
+          {/* bg-muted, not the old rgba(0,0,0,0.04) which was invisible on a
+              dark dialog surface. */}
+          <div className="flex items-center justify-between gap-3 rounded-md bg-muted p-3">
+            <code className="font-mono text-xs break-all">{revealKey}</code>
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0"
+              onClick={() => revealKey && copyToClipboard(revealKey)}
+            >
+              <Copy />
+              Copy
+            </Button>
+          </div>
+
+          <DialogFooter>
+            <Button onClick={() => setRevealKey(null)}>Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Revoke confirmation */}
+      <AlertDialog open={!!pendingRevoke} onOpenChange={(o) => !o && setPendingRevoke(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Revoke this API key?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingRevoke?.keyPrefix} will stop working immediately. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                const row = pendingRevoke
+                setPendingRevoke(null)
+                if (row) onRevoke(row)
+              }}
+            >
+              Revoke
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
