@@ -1,16 +1,21 @@
+import * as React from "react"
 import { Switch as SwitchPrimitive } from "@base-ui/react/switch"
 
 import { cn } from "@/lib/utils"
 
-function Switch({
-  className,
-  size = "default",
-  ...props
-}: SwitchPrimitive.Root.Props & {
-  size?: "sm" | "default"
-}) {
+/* REACT 18 COMPATIBILITY (deviation from the upstream kit, which targets React
+ * 19 where `ref` is an ordinary prop). Leaf form controls are ref targets by
+ * nature: react-hook-form's `register()` returns a ref, and Base UI triggers
+ * pass one to whatever they render. Without forwardRef, React 18 logs
+ * "Function components cannot be given refs" and drops it, so the field is
+ * never registered and its value never reaches the form. */
+const Switch = React.forwardRef<
+  HTMLButtonElement,
+  SwitchPrimitive.Root.Props & { size?: "sm" | "default" }
+>(function Switch({ className, size = "default", ...props }, ref) {
   return (
     <SwitchPrimitive.Root
+      ref={ref}
       data-slot="switch"
       data-size={size}
       className={cn(
@@ -25,6 +30,6 @@ function Switch({
       />
     </SwitchPrimitive.Root>
   )
-}
+})
 
 export { Switch }

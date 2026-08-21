@@ -1,33 +1,42 @@
 import { Suspense, lazy, useMemo, useState } from 'react'
-import { Alert, Button, Table, Tag, Tooltip, Typography } from 'antd'
 import {
-  ReloadOutlined,
-  TeamOutlined,
-  CreditCardOutlined,
-  DollarOutlined,
-  ThunderboltOutlined,
-  UserAddOutlined,
-  FallOutlined,
-  RiseOutlined,
-  HistoryOutlined,
-  BarChartOutlined,
-  PieChartOutlined
-} from '@ant-design/icons'
+  BarChart3,
+  CreditCard,
+  DollarSign,
+  History,
+  OctagonX,
+  PieChart,
+  RotateCw,
+  TrendingDown,
+  TrendingUp,
+  TriangleAlert,
+  UserPlus,
+  Users,
+  Zap
+} from 'lucide-react'
+import dayjs from 'dayjs'
+
 import DateFilter, { DateRange, DatePreset } from '../components/DateFilter'
 import PageHeader from '../components/PageHeader'
 import SectionCard from '../components/SectionCard'
 import StatCard from '../components/StatCard'
 import EmptyState from '../components/EmptyState'
-import { ChartSkeleton, DonutSkeleton, ListSkeleton, TableSkeleton } from '../components/skeletons'
+import { ChartSkeleton, DonutSkeleton } from '../components/skeletons'
+import { DataTable, type DataTableColumn } from '../components/global/data-table'
 import { DashboardUserCreditUsage, useDashboardData } from '../store/dashboard'
-import { PLAN_DISPLAY_NAME, Plan } from '../types/types'
-import { PLAN_COLORS, PLAN_ORDER } from '../ui/planTheme'
-import dayjs from 'dayjs'
+import { PLAN_DISPLAY_NAME } from '../types/types'
+import { PLAN_ORDER, planBadgeStyle } from '../ui/planTheme'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
-// Recharts is ~400KB of the bundle and nothing above the fold needs it, so it
+// Recharts is ~350KB of the bundle and nothing above the fold needs it, so it
 // streams in after the KPI row has already painted.
 const RevenueSignupsChart = lazy(() => import('../components/charts/RevenueSignupsChart'))
 const UsersByPlanChart = lazy(() => import('../components/charts/UsersByPlanChart'))
+
+const PAGE_SIZE = 10
 
 function formatRangeLabel(range: DateRange & { preset: DatePreset }) {
   if (range.preset !== 'Custom Range') return range.preset
@@ -49,14 +58,36 @@ function money(n: number): string {
   })}`
 }
 
-const ACTIVITY_COLORS: Record<string, string> = {
-  signup: 'blue',
-  purchase: 'green',
-  refund: 'red'
+/* On-palette and semantic: a purchase is revenue so it takes the brand accent,
+ * a refund is destructive, everything else stays neutral. The previous version
+ * used Antd's named blue/green/red, which were not theme tokens at all. */
+function activityVariant(type: string): 'default' | 'secondary' | 'destructive' {
+  const t = String(type).toLowerCase()
+  if (t === 'purchase') return 'default'
+  if (t === 'refund') return 'destructive'
+  return 'secondary'
 }
 
-function activityColor(type: string): string | undefined {
-  return ACTIVITY_COLORS[String(type).toLowerCase()]
+/** Relative time, with the absolute timestamp on hover and in the title. */
+function RelativeTime({ value }: { value?: string | null }) {
+  if (!value) return <span className="text-muted-foreground">—</span>
+  const abs = dayjs(value).format('YYYY-MM-DD HH:mm')
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={<time dateTime={value} title={abs} className="text-muted-foreground" />}
+      >
+        {dayjs(value).fromNow()}
+      </TooltipTrigger>
+      <TooltipContent>{abs}</TooltipContent>
+    </Tooltip>
+  )
+}
+
+interface ActivityRow {
+  type: string
+  when: string
+  text: string
 }
 
 export default function Dashboard() {
@@ -68,6 +99,9 @@ export default function Dashboard() {
       preset: 'Last 30 Days'
     }
   })
+
+  const [creditPage, setCreditPage] = useState(1)
+  const [activityPage, setActivityPage] = useState(1)
 
   const {
     metrics,
@@ -84,9 +118,9 @@ export default function Dashboard() {
 
   const usersByPlan = useMemo(() => {
     const map = new Map<string, number>(
-      (metrics?.usersByPlan ?? []).map(i => [String(i.name).toLowerCase(), Number(i.value) || 0])
+      (metrics?.usersByPlan ?? []).map((i) => [String(i.name).toLowerCase(), Number(i.value) || 0])
     )
-    return PLAN_ORDER.map(name => ({ name, value: map.get(name) ?? 0 }))
+    return PLAN_ORDER.map((name) => ({ name, value: map.get(name) ?? 0 }))
   }, [metrics?.usersByPlan])
 
   const usersByPlanTotal = useMemo(
@@ -95,100 +129,80 @@ export default function Dashboard() {
   )
 
   const timeSeries = metrics?.timeSeries ?? []
-  const recentItems = metrics?.latestActivity ?? []
+  const recentItems: ActivityRow[] = metrics?.latestActivity ?? []
 
-  const creditColumns = useMemo(
+  const creditColumns: DataTableColumn<DashboardUserCreditUsage>[] = useMemo(
     () => [
       {
-        title: 'User',
-        dataIndex: 'fullName',
         key: 'fullName',
-        render: (_: string, row: DashboardUserCreditUsage) => (
-          <div className="mf-cell-stack">
-            <span className="mf-cell-stack__primary">{row.fullName || '—'}</span>
-            <span className="mf-cell-stack__secondary">{row.email}</span>
+        title: 'User',
+        render: (row) => (
+          <div className="flex flex-col leading-tight">
+            <span className="font-medium">{row.fullName || '—'}</span>
+            <span className="text-xs text-muted-foreground">{row.email}</span>
           </div>
         )
       },
       {
-        title: 'Plan',
-        dataIndex: 'plan',
         key: 'plan',
-        width: 140,
-        render: (plan: Plan) => (
-          <Tag
-            className="mf-plan-tag"
-            style={{ color: PLAN_COLORS[plan], borderColor: PLAN_COLORS[plan] }}
-          >
-            {PLAN_DISPLAY_NAME[plan] ?? plan}
-          </Tag>
+        title: 'Plan',
+        width: 150,
+        render: (row) => (
+          <Badge className="border-transparent" style={planBadgeStyle(row.plan)}>
+            {PLAN_DISPLAY_NAME[row.plan] ?? row.plan}
+          </Badge>
         )
       },
       {
-        title: 'Used in period',
-        dataIndex: 'creditsUsedInRange',
         key: 'creditsUsedInRange',
-        align: 'right' as const,
-        width: 180,
-        defaultSortOrder: 'descend' as const,
-        sorter: (a: DashboardUserCreditUsage, b: DashboardUserCreditUsage) =>
-          a.creditsUsedInRange - b.creditsUsedInRange,
-        render: (value: number) => <span className="mf-num">{compact(value)}</span>
-      },
-      {
-        title: 'Total used',
-        dataIndex: 'totalCreditsUsed',
-        key: 'totalCreditsUsed',
-        align: 'right' as const,
-        width: 140,
-        sorter: (a: DashboardUserCreditUsage, b: DashboardUserCreditUsage) =>
-          a.totalCreditsUsed - b.totalCreditsUsed,
-        render: (value: number) => <span className="mf-num mf-num--muted">{compact(value)}</span>
-      },
-      {
-        title: 'Last used',
-        dataIndex: 'lastUsedAt',
-        key: 'lastUsedAt',
+        title: 'Used in period',
+        align: 'right',
         width: 170,
-        render: (value: string | null) =>
-          value ? (
-            <Tooltip title={dayjs(value).format('YYYY-MM-DD HH:mm')}>
-              <span className="mf-cell-muted">{dayjs(value).fromNow()}</span>
-            </Tooltip>
-          ) : (
-            <span className="mf-cell-muted">—</span>
-          )
+        defaultSortOrder: 'descend',
+        sorter: (a, b) => a.creditsUsedInRange - b.creditsUsedInRange,
+        render: (row) => (
+          <span className="font-medium tabular-nums">{compact(row.creditsUsedInRange)}</span>
+        )
+      },
+      {
+        key: 'totalCreditsUsed',
+        title: 'Total used',
+        align: 'right',
+        width: 140,
+        hideOnMobile: true,
+        sorter: (a, b) => a.totalCreditsUsed - b.totalCreditsUsed,
+        render: (row) => (
+          <span className="tabular-nums text-muted-foreground">
+            {compact(row.totalCreditsUsed)}
+          </span>
+        )
+      },
+      {
+        key: 'lastUsedAt',
+        title: 'Last used',
+        width: 160,
+        hideOnMobile: true,
+        render: (row) => <RelativeTime value={row.lastUsedAt} />
       }
     ],
     []
   )
 
-  const activityColumns = useMemo(
+  const activityColumns: DataTableColumn<ActivityRow>[] = useMemo(
     () => [
       {
-        title: 'Type',
-        dataIndex: 'type',
         key: 'type',
+        title: 'Type',
         width: 130,
-        render: (type: string) => <Tag color={activityColor(type)}>{type}</Tag>
+        render: (row) => <Badge variant={activityVariant(row.type)}>{row.type}</Badge>
       },
+      { key: 'text', title: 'Activity', render: (row) => <span>{row.text}</span> },
       {
-        title: 'Activity',
-        dataIndex: 'text',
-        key: 'text',
-        render: (text: string) => <span className="mf-cell-strong">{text}</span>
-      },
-      {
-        title: 'When',
-        dataIndex: 'when',
         key: 'when',
-        width: 200,
-        align: 'right' as const,
-        render: (when: string) => (
-          <Tooltip title={dayjs(when).format('YYYY-MM-DD HH:mm')}>
-            <span className="mf-cell-muted">{dayjs(when).fromNow()}</span>
-          </Tooltip>
-        )
+        title: 'When',
+        width: 180,
+        align: 'right',
+        render: (row) => <RelativeTime value={row.when} />
       }
     ],
     []
@@ -197,55 +211,60 @@ export default function Dashboard() {
   // Hard failure with nothing cached to fall back on.
   const fatal = !!error && !metrics
   // Data on screen belongs to a previous range/fetch while a new one is in
-  // flight. Dim it slightly so the numbers are never silently misattributed.
+  // flight. Dim it so the numbers are never silently misattributed.
   const showingStale = refreshing && !initialLoading
 
+  const creditRows = userCreditUsage.slice((creditPage - 1) * PAGE_SIZE, creditPage * PAGE_SIZE)
+  const activityRows = recentItems.slice((activityPage - 1) * PAGE_SIZE, activityPage * PAGE_SIZE)
+
   return (
-    <div className={`mf-page${showingStale ? ' mf-page--stale' : ''}`}>
+    <div className="flex flex-col gap-5">
       <PageHeader
         title="Dashboard"
         subtitle="Overview of your MailsFinder platform"
         actions={
-          <div className="mf-page-header__toolbar">
+          <div className="flex items-center gap-3">
             {fetchedAt && (
-              <Tooltip
-                title={
-                  durationMs != null
-                    ? `Loaded in ${durationMs}ms · ${dayjs(fetchedAt).format('HH:mm:ss')}`
-                    : dayjs(fetchedAt).format('HH:mm:ss')
-                }
-              >
-                <Typography.Text type="secondary" className="mf-updated">
+              <Tooltip>
+                <TooltipTrigger
+                  render={<span className="hidden text-xs text-muted-foreground sm:inline" />}
+                >
                   {refreshing ? 'Refreshing…' : `Updated ${dayjs(fetchedAt).fromNow()}`}
-                </Typography.Text>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {durationMs != null
+                    ? `Loaded in ${durationMs}ms · ${dayjs(fetchedAt).format('HH:mm:ss')}`
+                    : dayjs(fetchedAt).format('HH:mm:ss')}
+                </TooltipContent>
               </Tooltip>
             )}
-            <Button icon={<ReloadOutlined />} onClick={refresh} loading={refreshing}>
+            <Button variant="outline" onClick={refresh} disabled={refreshing}>
+              <RotateCw className={refreshing ? 'animate-spin' : undefined} />
               Refresh
             </Button>
           </div>
         }
       />
 
-      <div className="mf-toolbar">
+      <div className="rounded-xl bg-card p-3 ring-1 ring-foreground/10">
         <DateFilter value={range} onChange={setRange} />
       </div>
 
       {error && (
-        <Alert
-          type={metrics ? 'warning' : 'error'}
-          showIcon
-          message={
-            metrics
-              ? 'Showing the last successfully loaded data — the latest refresh failed.'
-              : 'Failed to load. Backend may be unreachable.'
-          }
-          action={
-            <Button size="small" onClick={refresh}>
-              Retry
-            </Button>
-          }
-        />
+        <Alert variant={metrics ? 'default' : 'destructive'}>
+          {metrics ? <TriangleAlert /> : <OctagonX />}
+          <AlertTitle>
+            {metrics
+              ? 'Showing the last successfully loaded data'
+              : 'Failed to load. Backend may be unreachable.'}
+          </AlertTitle>
+          <AlertDescription>
+            {metrics ? 'The latest refresh failed.' : 'Check your connection and try again.'}
+          </AlertDescription>
+          <Button variant="outline" size="sm" className="ml-auto self-start" onClick={refresh}>
+            Retry
+          </Button>
+        </Alert>
       )}
 
       {fatal ? (
@@ -254,77 +273,97 @@ export default function Dashboard() {
             title="Dashboard data unavailable"
             hint="We couldn't reach the admin API. Check your connection and try again."
             action={
-              <Button type="primary" icon={<ReloadOutlined />} onClick={refresh}>
+              <Button onClick={refresh}>
+                <RotateCw />
                 Retry
               </Button>
             }
           />
         </SectionCard>
       ) : (
-        <>
-          <section className="mf-kpi-grid" aria-label="Key metrics">
+        /* The whole stale region goes inert, not just the KPI grid and charts —
+           previously the tables underneath stayed clickable while dimmed. */
+        <div
+          className={
+            showingStale
+              ? 'pointer-events-none flex flex-col gap-5 opacity-60 transition-opacity'
+              : 'flex flex-col gap-5 transition-opacity'
+          }
+          aria-busy={showingStale || undefined}
+        >
+          {/* Both KPI rows step 1 -> 2 -> N at the SAME breakpoints. The old CSS
+              dropped the 4-up row to 2 columns at 1200px but held the 3-up row
+              at 3 columns until 900px, so between those widths the two rows
+              showed mismatched card widths. */}
+          <section
+            className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"
+            aria-label="Key metrics"
+          >
             <StatCard
               label="Total users"
               value={compact(metrics?.totalUsers ?? 0)}
-              icon={<TeamOutlined />}
+              icon={<Users />}
               loading={initialLoading}
             />
             <StatCard
               label="Active subscriptions"
               value={compact(metrics?.activeSubscriptions ?? 0)}
-              icon={<CreditCardOutlined />}
+              icon={<CreditCard />}
               loading={initialLoading}
             />
             <StatCard
               label="Total revenue"
               value={money(metrics?.totalRevenue ?? 0)}
-              icon={<DollarOutlined />}
+              icon={<DollarSign />}
               loading={initialLoading}
             />
             <StatCard
               label="Total credits used"
               value={compact(metrics?.totalCreditsUsed ?? 0)}
-              icon={<ThunderboltOutlined />}
+              icon={<Zap />}
               loading={initialLoading}
             />
           </section>
 
-          <section className="mf-kpi-grid mf-kpi-grid--three" aria-label="Secondary metrics">
+          <section
+            className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
+            aria-label="Secondary metrics"
+          >
             <StatCard
               label="New users (MoM)"
               value={compact(metrics?.newUsersThisMonth?.count ?? 0)}
               delta={metrics?.newUsersThisMonth?.deltaPct}
-              icon={<UserAddOutlined />}
+              icon={<UserPlus />}
               loading={initialLoading}
             />
             <StatCard
               label="Churn"
               value={`${Number(metrics?.churnPct ?? 0).toFixed(1)}%`}
               hint="Cancelled vs. users created in period"
-              icon={<FallOutlined />}
+              icon={<TrendingDown />}
               loading={initialLoading}
             />
             <StatCard
               label="Active users (30d)"
               value={compact(metrics?.activeUsersLast30 ?? 0)}
               hint="Seen in the last 30 days"
-              icon={<RiseOutlined />}
+              icon={<TrendingUp />}
               loading={initialLoading}
             />
           </section>
 
-          <div className="mf-split">
+          <div className="grid gap-4 lg:grid-cols-[1.7fr_1fr]">
             <SectionCard
               title="Revenue and signups"
               description={selectedRangeLabel}
-              extra={<BarChartOutlined className="mf-card__glyph" />}
+              extra={<BarChart3 className="size-4 text-muted-foreground" />}
             >
               {initialLoading ? (
                 <ChartSkeleton height={280} />
               ) : timeSeries.length === 0 ? (
                 <EmptyState
                   compact
-                  icon={<BarChartOutlined />}
+                  icon={<BarChart3 />}
                   title="No activity in this period"
                   hint="Try widening the date range."
                 />
@@ -338,14 +377,14 @@ export default function Dashboard() {
             <SectionCard
               title="Users by plan"
               description={initialLoading ? 'Loading…' : `${compact(usersByPlanTotal)} users total`}
-              extra={<PieChartOutlined className="mf-card__glyph" />}
+              extra={<PieChart className="size-4 text-muted-foreground" />}
             >
               {initialLoading ? (
                 <DonutSkeleton height={280} />
               ) : usersByPlanTotal === 0 ? (
                 <EmptyState
                   compact
-                  icon={<PieChartOutlined />}
+                  icon={<PieChart />}
                   title="No users to break down"
                   hint="Plan distribution appears once users exist."
                 />
@@ -360,79 +399,64 @@ export default function Dashboard() {
           <SectionCard
             title="Credits used by user"
             description="“Used in period” is consumption inside the selected range. “Total used” is lifetime."
-            extra={<Tag className="mf-range-tag">{selectedRangeLabel}</Tag>}
+            extra={<Badge variant="outline">{selectedRangeLabel}</Badge>}
             noPadding
           >
-            {initialLoading ? (
-              <div className="mf-card__body-pad">
-                <TableSkeleton rows={6} cols={5} />
-              </div>
-            ) : (
-              <Table<DashboardUserCreditUsage>
-                className="mf-table"
-                rowKey="userId"
-                dataSource={userCreditUsage}
-                columns={creditColumns}
-                size="middle"
-                scroll={{ x: 'max-content' }}
-                pagination={
-                  userCreditUsage.length > 10
-                    ? { pageSize: 10, showSizeChanger: false, size: 'small' }
-                    : false
-                }
-                locale={{
-                  emptyText: (
-                    <EmptyState
-                      compact
-                      icon={<ThunderboltOutlined />}
-                      title="No credit usage in this period"
-                      hint="Pick a wider range to see consumption."
-                    />
-                  )
-                }}
-              />
-            )}
+            <DataTable<DashboardUserCreditUsage>
+              caption="Credit usage by user"
+              rowKey="userId"
+              rows={creditRows}
+              columns={creditColumns}
+              loading={initialLoading}
+              pagination={{
+                page: creditPage,
+                pageSize: PAGE_SIZE,
+                total: userCreditUsage.length,
+                pageSizeOptions: [PAGE_SIZE],
+                onChange: (p) => setCreditPage(p)
+              }}
+              empty={
+                <EmptyState
+                  compact
+                  icon={<Zap />}
+                  title="No credit usage in this period"
+                  hint="Pick a wider range to see consumption."
+                />
+              }
+            />
           </SectionCard>
 
           <SectionCard
             title="Recent activity"
             description="Latest platform events"
-            extra={<HistoryOutlined className="mf-card__glyph" />}
+            extra={<History className="size-4 text-muted-foreground" />}
             noPadding
           >
-            {initialLoading ? (
-              <div className="mf-card__body-pad">
-                <ListSkeleton rows={5} />
-              </div>
-            ) : (
-              <Table
-                className="mf-table"
-                rowKey={(row: { type: string; when: string; text: string }) =>
-                  `${row.when}|${row.type}|${row.text}`
-                }
-                dataSource={recentItems}
-                columns={activityColumns}
-                size="middle"
-                scroll={{ x: 'max-content' }}
-                pagination={
-                  recentItems.length > 10
-                    ? { pageSize: 10, showSizeChanger: false, size: 'small' }
-                    : false
-                }
-                locale={{
-                  emptyText: (
-                    <EmptyState
-                      compact
-                      icon={<HistoryOutlined />}
-                      title="No activity yet"
-                      hint="Signups, purchases and refunds will show up here."
-                    />
-                  )
-                }}
-              />
-            )}
+            <DataTable<ActivityRow>
+              caption="Recent platform activity"
+              rowKey={(row) => `${row.when}|${row.type}|${row.text}`}
+              rows={activityRows}
+              columns={activityColumns}
+              loading={initialLoading}
+              skeletonRows={5}
+              pagination={{
+                page: activityPage,
+                pageSize: PAGE_SIZE,
+                total: recentItems.length,
+                pageSizeOptions: [PAGE_SIZE],
+                onChange: (p) => setActivityPage(p)
+              }}
+              empty={
+                <EmptyState
+                  compact
+                  icon={<History />}
+                  title="No activity yet"
+                  hint="Signups, purchases and refunds will show up here."
+                />
+              }
+            />
           </SectionCard>
-        </>
+        </div>
       )}
     </div>
   )

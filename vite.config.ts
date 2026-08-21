@@ -37,10 +37,16 @@ export default defineConfig({
           // makes `shared` ⇄ `react-vendor` circular, and the shim evaluates
           // before React is initialised — "Cannot read properties of undefined
           // (reading 'useState')" at runtime in the production build only.
+          // `clsx` and `tailwind-merge` back cn(), so every component imports
+          // them; `clsx` is ALSO a recharts dependency. Left unassigned they
+          // can land in the `charts` chunk, which then becomes a static
+          // dependency of the entry and drags ~350KB of recharts onto every
+          // route. Both are pure functions with no React import, so they
+          // belong here.
           if (
             id.includes('commonjsHelpers') ||
             id.includes('vite/preload-helper') ||
-            /[\\/]node_modules[\\/](react-is|object-assign)[\\/]/.test(id)
+            /[\\/]node_modules[\\/](react-is|object-assign|clsx|tailwind-merge)[\\/]/.test(id)
           ) {
             return 'shared'
           }
@@ -52,11 +58,21 @@ export default defineConfig({
           ) {
             return 'react-vendor'
           }
-          // Only packages reachable exclusively from the lazy chart modules.
-          // `fast-equals`/`eventemitter3` are also pulled in by rc-* widgets,
-          // so grouping them here made the whole charts chunk a static
-          // dependency of the entry and it got preloaded on every route.
-          if (/[\\/]node_modules[\\/](recharts|d3-[a-z]+|victory-vendor|internmap|decimal\.js-light)[\\/]/.test(id)) {
+          // Packages reachable exclusively from the lazy chart modules.
+          //
+          // recharts 3 has a far bigger dependency tree than v2 did — it pulls
+          // @reduxjs/toolkit, react-redux, immer, reselect, es-toolkit and
+          // eventemitter3. Those must be listed here or Rollup is free to place
+          // them with the entry, which makes `charts` a static dependency and
+          // preloads recharts on every route.
+          //
+          // Deliberately NOT here: `clsx` and `use-sync-external-store`. Both
+          // are recharts dependencies but are also used by the eager graph
+          // (cn() and react-vendor respectively), so claiming them for `charts`
+          // would recreate the same problem in reverse.
+          if (
+            /[\\/]node_modules[\\/](recharts|recharts-scale|react-smooth|d3-[a-z]+|victory-vendor|internmap|decimal\.js-light|@reduxjs[\\/]toolkit|react-redux|immer|reselect|es-toolkit|eventemitter3|fast-equals|tiny-invariant)[\\/]/.test(id)
+          ) {
             return 'charts'
           }
           if (/[\\/]node_modules[\\/](react-markdown|remark-|rehype-|micromark|mdast-|hast-|unist-|unified|vfile|property-information|space-separated-tokens|comma-separated-tokens|character-entities|decode-named-character-reference|trim-lines|bail|is-plain-obj|trough|devlop|zwitch|longest-streak|ccount|markdown-table|escape-string-regexp|html-url-attributes)/.test(id)) {
@@ -65,8 +81,6 @@ export default defineConfig({
           if (/[\\/]node_modules[\\/](crypto-js)[\\/]/.test(id)) {
             return 'crypto'
           }
-          // antd is deliberately NOT forced into one chunk — letting Rollup
-          // split it lets each lazy route pull only the widgets it uses.
           return undefined
         }
       }

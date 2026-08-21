@@ -13,11 +13,7 @@
     <script>
       try {
         var saved = localStorage.getItem('theme');
-        var dark = saved !== 'light';
-        // `.dark` class drives the shadcn tokens; `data-theme` keeps the legacy
-        // ui.css --mf-* tokens alive until that sheet is deleted in stage 2.
-        document.documentElement.classList.toggle('dark', dark);
-        document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+        document.documentElement.classList.toggle('dark', saved !== 'light');
       } catch (e) {}
     </script>
 

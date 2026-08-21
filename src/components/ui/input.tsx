@@ -3,9 +3,17 @@ import { Input as InputPrimitive } from "@base-ui/react/input"
 
 import { cn } from "@/lib/utils"
 
-function Input({ className, type, ...props }: React.ComponentProps<"input">) {
+/* REACT 18 COMPATIBILITY (deviation from the upstream kit, which targets React
+ * 19 where `ref` is an ordinary prop). Leaf form controls are ref targets by
+ * nature: react-hook-form's `register()` returns a ref, and Base UI triggers
+ * pass one to whatever they render. Without forwardRef, React 18 logs
+ * "Function components cannot be given refs" and drops it, so the field is
+ * never registered and its value never reaches the form. */
+const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
+  function Input({ className, type, ...props }, ref) {
   return (
     <InputPrimitive
+      ref={ref}
       type={type}
       data-slot="input"
       className={cn(
@@ -15,6 +23,6 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
       {...props}
     />
   )
-}
+})
 
 export { Input }

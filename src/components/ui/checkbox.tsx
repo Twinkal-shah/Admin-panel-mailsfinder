@@ -1,11 +1,20 @@
+import * as React from "react"
 import { Checkbox as CheckboxPrimitive } from "@base-ui/react/checkbox"
 
 import { cn } from "@/lib/utils"
 import { CheckIcon } from "lucide-react"
 
-function Checkbox({ className, ...props }: CheckboxPrimitive.Root.Props) {
+/* REACT 18 COMPATIBILITY (deviation from the upstream kit, which targets React
+ * 19 where `ref` is an ordinary prop). Leaf form controls are ref targets by
+ * nature: react-hook-form's `register()` returns a ref, and Base UI triggers
+ * pass one to whatever they render. Without forwardRef, React 18 logs
+ * "Function components cannot be given refs" and drops it, so the field is
+ * never registered and its value never reaches the form. */
+const Checkbox = React.forwardRef<HTMLButtonElement, CheckboxPrimitive.Root.Props>(
+  function Checkbox({ className, ...props }, ref) {
   return (
     <CheckboxPrimitive.Root
+      ref={ref}
       data-slot="checkbox"
       className={cn(
         "peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground dark:data-checked:bg-primary",
@@ -22,6 +31,6 @@ function Checkbox({ className, ...props }: CheckboxPrimitive.Root.Props) {
       </CheckboxPrimitive.Indicator>
     </CheckboxPrimitive.Root>
   )
-}
+})
 
 export { Checkbox }

@@ -264,6 +264,22 @@
   }
 }
 
+/* Brief highlight on a row whose data just changed, so an optimistic update is
+ * visible without a layout shift. Replaces the ui.css `row-refresh` keyframe. */
+@media (prefers-reduced-motion: no-preference) {
+  .mf-row-flash > td {
+    animation: mf-row-flash 840ms ease-out;
+  }
+  @keyframes mf-row-flash {
+    0% {
+      background-color: color-mix(in oklch, var(--primary) 18%, transparent);
+    }
+    100% {
+      background-color: transparent;
+    }
+  }
+}
+
 /* Route-change fade. The previous implementation ran a 240ms/12px transform on
  * every navigation with no reduced-motion guard. */
 @media (prefers-reduced-motion: no-preference) {
