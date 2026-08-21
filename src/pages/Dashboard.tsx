@@ -22,6 +22,7 @@ import { ChartSkeleton, DonutSkeleton, ListSkeleton, TableSkeleton } from '../co
 import { DashboardUserCreditUsage, useDashboardData } from '../store/dashboard'
 import { PLAN_DISPLAY_NAME, Plan } from '../types/types'
 import { PLAN_COLORS, PLAN_ORDER } from '../ui/planTheme'
+import { inReportTz, nowInReportTz } from '../utils/reportingTz'
 import dayjs from 'dayjs'
 
 // Recharts is ~400KB of the bundle and nothing above the fold needs it, so it
@@ -31,7 +32,9 @@ const UsersByPlanChart = lazy(() => import('../components/charts/UsersByPlanChar
 
 function formatRangeLabel(range: DateRange & { preset: DatePreset }) {
   if (range.preset !== 'Custom Range') return range.preset
-  return `${dayjs.utc(range.from).format('MMM D, YYYY')} – ${dayjs.utc(range.to).format('MMM D, YYYY')}`
+  // Labelled in the reporting timezone so it names the same days the range
+  // actually covers.
+  return `${inReportTz(range.from).format('MMM D, YYYY')} – ${inReportTz(range.to).format('MMM D, YYYY')}`
 }
 
 function compact(n: number): string {
@@ -61,7 +64,8 @@ function activityColor(type: string): string | undefined {
 
 export default function Dashboard() {
   const [range, setRange] = useState<DateRange & { preset: DatePreset }>(() => {
-    const now = dayjs.utc()
+    // Matches DateFilter's presets: IST day bounds, not UTC.
+    const now = nowInReportTz()
     return {
       from: now.subtract(29, 'day').startOf('day').toISOString(),
       to: now.endOf('day').toISOString(),

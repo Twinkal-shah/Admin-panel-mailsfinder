@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import dayjs from 'dayjs'
 import { ApiKey, AuditRow, Plan, Purchase, User } from '../types/types'
+import { reportTzDate, reportTzDayEnd, reportTzDayStart } from '../utils/reportingTz'
 import { mapApiKey, mapUser } from '../utils/mappers'
 import { useDataStore } from './data'
 import { apiFetch } from '../utils/api'
@@ -48,7 +48,60 @@ function normalizePlan(raw: unknown): Plan {
   return (PLANS as string[]).includes(value) ? (value as Plan) : 'free'
 }
 
-function parseBootstrap(body: any, durationMs: number): BootstrapResult {
+/**
+ * Recomputes "new users in range" client-side over the IST window.
+ *
+ * The API only accepts a bare `YYYY-MM-DD` and expands it to a **UTC** day, so
+ * its own `metrics.newUsersThisMonth` misses signups between 00:00 and 05:29
+ * IST (they fall on the previous UTC date) while the Users page — which renders
+ * `createdAt` in local time — shows them as today. That's the 20-vs-17 gap.
+ *
+ * This needs no backend change because `/dashboard/bootstrap` already returns
+ * the **complete, unfiltered** user list with raw `createdAt` (the server does
+ * `UserModel.find({})` with no range and no limit — it's the same array that
+ * feeds `metrics.totalUsers`). So the exact IST-window count is already in the
+ * payload we fetch; we just have to count it against the right boundaries.
+ *
+ * `deltaPct` is recomputed the same way the server does — against the
+ * immediately preceding window of equal length — so the pill stays consistent
+ * with the corrected count.
+ */
+function computeNewUsersInWindow(
+  rawUsers: unknown,
+  windowStart: number,
+  windowEnd: number
+): { count: number; deltaPct: number } {
+  const spanMs = windowEnd - windowStart + 1
+  const prevStart = windowStart - spanMs
+  const prevEnd = windowStart - 1
+  let count = 0
+  let previous = 0
+
+  if (Array.isArray(rawUsers)) {
+    for (const u of rawUsers) {
+      // Deliberately the RAW createdAt, not mapUser()'s: that substitutes
+      // `new Date()` when the field is missing, which would invent undated
+      // users into "today". Undated users are skipped instead.
+      const raw = (u as any)?.createdAt
+      if (!raw) continue
+      const t = new Date(raw).getTime()
+      if (!Number.isFinite(t)) continue
+      if (t >= windowStart && t <= windowEnd) count++
+      else if (t >= prevStart && t <= prevEnd) previous++
+    }
+  }
+
+  return {
+    count,
+    deltaPct: ((count - previous) / Math.max(previous, 1)) * 100
+  }
+}
+
+function parseBootstrap(
+  body: any,
+  durationMs: number,
+  window: { start: number; end: number }
+): BootstrapResult {
   const purchases: Purchase[] = Array.isArray(body?.purchases)
     ? body.purchases.map((p: any): Purchase => {
         const statusRaw: string = p.paymentStatus ?? p.status ?? 'paid'
@@ -82,8 +135,21 @@ function parseBootstrap(body: any, durationMs: number): BootstrapResult {
       }))
     : []
 
+  const serverMetrics: DashboardMetrics | null = body?.metrics ?? null
+
   return {
-    metrics: body?.metrics ?? null,
+    metrics: serverMetrics
+      ? {
+          ...serverMetrics,
+          // Only this metric is overridden. Every other field still comes from
+          // the server, computed over its UTC window.
+          newUsersThisMonth: computeNewUsersInWindow(
+            body?.users,
+            window.start,
+            window.end
+          )
+        }
+      : null,
     userCreditUsage,
     store: {
       users: Array.isArray(body?.users) ? body.users.map(mapUser) : [],
@@ -117,12 +183,18 @@ async function fetchBootstrap(from: string, to: string): Promise<BootstrapResult
   if (existing) return existing
 
   const params = new URLSearchParams({ from, to })
+  // The IST bounds of the same range, derived from the very date strings we're
+  // sending so the window and the cache key can never disagree.
+  const window = {
+    start: reportTzDayStart(from).getTime(),
+    end: reportTzDayEnd(to).getTime()
+  }
   const started = performance.now()
   const promise = (async () => {
     const res = await apiFetch(`/api/admin/dashboard/bootstrap?${params.toString()}`)
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const body = await res.json()
-    const parsed = parseBootstrap(body, Math.round(performance.now() - started))
+    const parsed = parseBootstrap(body, Math.round(performance.now() - started), window)
     cache.set(key, parsed)
     return parsed
   })().finally(() => {
@@ -148,8 +220,11 @@ export interface UseDashboardData {
 }
 
 export function useDashboardData(fromIso: string, toIso: string): UseDashboardData {
-  const from = dayjs.utc(fromIso).format('YYYY-MM-DD')
-  const to = dayjs.utc(toIso).format('YYYY-MM-DD')
+  // The range instants are IST day bounds, so the calendar dates handed to the
+  // API must be read in IST too. Reading them as UTC turned the IST day start
+  // (18:30Z the previous day) back into yesterday's date.
+  const from = reportTzDate(fromIso)
+  const to = reportTzDate(toIso)
   const key = cacheKey(from, to)
 
   // Selector form: subscribing to the whole store re-rendered the dashboard on

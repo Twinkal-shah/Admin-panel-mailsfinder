@@ -2,6 +2,7 @@ import { DatePicker, Segmented, Typography } from 'antd'
 import { CalendarOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
+import { REPORT_TZ_OFFSET_MINUTES, inReportTz, nowInReportTz } from '../utils/reportingTz'
 dayjs.extend(utc)
 
 export type DatePreset = 'Today' | 'Yesterday' | 'Last 7 Days' | 'Last 30 Days' | 'Custom Range'
@@ -29,7 +30,10 @@ export default function DateFilter(props: {
   const { RangePicker } = DatePicker
 
   function computeRange(preset: DatePreset): DateRange {
-    const now = dayjs.utc()
+    // Day boundaries are resolved in the reporting timezone (IST), not UTC, so
+    // "Today" means 00:00–23:59 IST. Previously this was `dayjs.utc()`, which
+    // pushed the first 5h30m of the IST day into the previous bucket.
+    const now = nowInReportTz()
     switch (preset) {
       case 'Today':
         return { from: now.startOf('day').toISOString(), to: now.endOf('day').toISOString(), preset }
@@ -54,12 +58,17 @@ export default function DateFilter(props: {
     }
   }
 
+  /** Re-reads the calendar date the user clicked as a day in the reporting tz. */
+  function asReportTzDay(picked: any) {
+    return nowInReportTz().year(picked.year()).month(picked.month()).date(picked.date())
+  }
+
   function onRangeChange(range: any) {
     if (!range || !range[0] || !range[1]) return
-    const fromLocal = range[0]
-    const toLocal = range[1]
-    const fromIso = dayjs.utc(new Date(Date.UTC(fromLocal.year(), fromLocal.month(), fromLocal.date(), 0, 0, 0))).toISOString()
-    const toIso = dayjs.utc(new Date(Date.UTC(toLocal.year(), toLocal.month(), toLocal.date(), 23, 59, 59))).toISOString()
+    // Same change as the presets: expand the picked dates into IST day bounds
+    // instead of UTC ones.
+    const fromIso = asReportTzDay(range[0]).startOf('day').toISOString()
+    const toIso = asReportTzDay(range[1]).endOf('day').toISOString()
     props.onChange({
       from: fromIso,
       to: toIso,
@@ -81,7 +90,7 @@ export default function DateFilter(props: {
       />
       <RangePicker
         className="mf-datefilter__picker"
-        value={[dayjs(props.value.from), dayjs(props.value.to)]}
+        value={[inReportTz(props.value.from), inReportTz(props.value.to)]}
         onChange={onRangeChange}
         allowClear={false}
       />
