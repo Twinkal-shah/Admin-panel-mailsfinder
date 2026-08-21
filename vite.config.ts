@@ -1,9 +1,27 @@
 import { fileURLToPath, URL } from 'node:url'
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '')
+
+  /* Optional dev-only proxy.
+   *
+   * api.mailsfinder.com does not send Access-Control-Allow-Origin for
+   * localhost, so a browser on localhost cannot call it directly — the
+   * preflight is blocked before the request is made. Setting
+   * VITE_DEV_PROXY_TARGET makes the browser talk to the Vite origin instead
+   * and lets Vite forward server-side, where CORS does not apply.
+   *
+   * Pair it with an EMPTY VITE_API_BASE_URL so requests are relative:
+   *   VITE_API_BASE_URL=
+   *   VITE_DEV_PROXY_TARGET=https://api.mailsfinder.com
+   *
+   * Inert unless the variable is set, and it has no effect on the build. */
+  const proxyTarget = env.VITE_DEV_PROXY_TARGET
+
+  return {
   // Tailwind v4 runs as a Vite plugin. Deliberately NOT the PostCSS route:
   // this repo has no postcss.config and should not gain one.
   plugins: [react(), tailwindcss()],
@@ -16,7 +34,14 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    https: false
+    https: false,
+    ...(proxyTarget
+      ? {
+          proxy: {
+            '/api': { target: proxyTarget, changeOrigin: true, secure: true }
+          }
+        }
+      : {})
   },
   build: {
     // The app shipped as one ~1.9MB chunk, so nothing painted until the whole
@@ -86,5 +111,6 @@ export default defineConfig({
       }
     },
     chunkSizeWarningLimit: 900
+  }
   }
 })
