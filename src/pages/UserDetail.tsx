@@ -106,14 +106,23 @@ export default function UserDetail() {
     setUserLoadFailed(false)
     ;(async () => {
       try {
-        const direct = await api.get(`/api/admin/userManagement/users/${id}`, {
-          validateStatus: () => true
-        })
-        const raw = direct.status === 200 ? (direct.data?.data ?? direct.data) : null
-        if (raw && (raw._id || raw.id)) {
-          if (!cancelled) setFetchedUser(mapUser(raw))
-          return
+        /* The probe gets its own try/catch. `validateStatus` only suppresses
+         * HTTP status rejection — a network-level failure still throws, and
+         * letting that escape would skip the fallback entirely and report
+         * "not found" for a user that the list endpoint can resolve fine. */
+        try {
+          const direct = await api.get(`/api/admin/userManagement/users/${id}`, {
+            validateStatus: () => true
+          })
+          const raw = direct.status === 200 ? (direct.data?.data ?? direct.data) : null
+          if (raw && (raw._id || raw.id)) {
+            if (!cancelled) setFetchedUser(mapUser(raw))
+            return
+          }
+        } catch {
+          // fall through to the list endpoint
         }
+
         const list = await api.get('/api/admin/userManagement/getAllUsers', {
           params: { page: 1, pageSize: 25, search: id }
         })
