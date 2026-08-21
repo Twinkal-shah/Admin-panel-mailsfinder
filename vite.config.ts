@@ -1,8 +1,19 @@
+import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
-  plugins: [react()],
+  // Tailwind v4 runs as a Vite plugin. Deliberately NOT the PostCSS route:
+  // this repo has no postcss.config and should not gain one.
+  plugins: [react(), tailwindcss()],
+  resolve: {
+    // The ported shadcn primitives import `@/lib/utils` and `@/components/ui/*`.
+    // Must stay in sync with `paths` in tsconfig.json.
+    alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url))
+    }
+  },
   server: {
     port: 5173,
     https: false

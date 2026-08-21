@@ -8,3 +8,6 @@ coverage
 *.local
 *.tmp
 .vercel
+
+# Local design reference only — not part of this app
+webprodigies-architectural-guardrail-starter-kit-main/

@@ -1,0 +1,283 @@
+/**
+ * Design tokens — the single source of truth for colour, type, radius and shadow.
+ *
+ * Ported from the webprodigies architectural-guardrail starter kit (shadcn v4,
+ * style `base-nova`). The chrome palette is the kit's neutral achromatic
+ * greyscale, unchanged. Only `--primary`, `--ring` and `--chart-*` are
+ * overridden, to the MailsFinder crimson family.
+ *
+ * RULE: no component may hardcode a colour. No hex, no `text-white`, no
+ * `bg-[#...]`, no forced `dark` classes. This file is the only place colour
+ * literals are allowed to live. That rule is what keeps one palette instead of
+ * the three that previously fought each other across index.html, ui.css and the
+ * Antd ConfigProvider.
+ */
+
+/* Order matters and all three are required.
+ * - tw-animate-css      -> animate-in, fade-in-0, zoom-in-95, slide-in-from-*
+ * - shadcn/tailwind.css -> the nine data-* custom variants (data-open,
+ *   data-closed, data-checked, data-active, data-horizontal, ...) that EVERY
+ *   Base UI primitive's class strings depend on, plus `no-scrollbar`. Without
+ *   it every popover animation and active state silently no-ops. */
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+/* Self-hosted. Replaces the render-blocking Google Fonts request and the
+ * media="print" swap hack that index.html used to work around it. */
+@import '@fontsource-variable/space-grotesk';
+@import '@fontsource-variable/geist-mono';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: oklch(0.99 0 0);
+  --foreground: oklch(0 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0 0 0);
+  --popover: oklch(0.99 0 0);
+  --popover-foreground: oklch(0 0 0);
+
+  /* MailsFinder crimson #b71d3f. White on it measures 6.44:1 — clears AA.
+   * Unlike the kit, primary-foreground is white in BOTH themes: the button
+   * surface stays crimson in dark mode, so the label must not flip to black. */
+  --primary: oklch(0.507 0.186 16.06);
+  --primary-foreground: oklch(1 0 0);
+
+  --secondary: oklch(0.94 0 0);
+  --secondary-foreground: oklch(0 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.44 0 0);
+  --accent: oklch(0.94 0 0);
+  --accent-foreground: oklch(0 0 0);
+  --destructive: oklch(0.63 0.19 23.03);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.92 0 0);
+  --input: oklch(0.94 0 0);
+
+  /* Focus ring. Brand crimson is fine on light surfaces (6.0-6.4:1). */
+  --ring: oklch(0.507 0.186 16.06);
+
+  /* Chart ramp, crimson family. Adjacent series are separated by LIGHTNESS,
+   * not hue: all four brand colours sit inside a 7 degree hue band, and
+   * #b71d3f / #fc536d are close enough in luminance to read as one series
+   * when placed side by side. */
+  --chart-1: oklch(0.507 0.186 16.06);
+  --chart-2: oklch(0.775 0.136 9.34);
+  --chart-3: oklch(0.401 0.036 13.71);
+  --chart-4: oklch(0.68 0.204 15.6);
+  --chart-5: oklch(0.72 0 0);
+
+  --sidebar: oklch(0.99 0 0);
+  --sidebar-foreground: oklch(0 0 0);
+  --sidebar-primary: oklch(0.507 0.186 16.06);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.94 0 0);
+  --sidebar-accent-foreground: oklch(0 0 0);
+  --sidebar-border: oklch(0.94 0 0);
+  --sidebar-ring: oklch(0.507 0.186 16.06);
+
+  /* Per-plan badge + row-accent colours. Theme-split because a single set
+   * cannot clear AA in both themes: on a 12% tint, `lifetime` measured 3.10:1
+   * and `payg` 2.11:1 in light, while `free` (1.82:1) and `monthly` (2.65:1)
+   * failed in dark. These are the minimum lightness shifts that reach 4.5:1
+   * while preserving each plan's hue and chroma identity. */
+  --plan-free: oklch(0.401 0.036 13.71); /* #5a4042 unchanged, 7.67:1 */
+  --plan-monthly: oklch(0.507 0.186 16.06); /* #b71d3f unchanged, 5.27:1 */
+  --plan-lifetime: oklch(0.56 0.204 15.6); /* darkened,       4.52:1 */
+  --plan-payg: oklch(0.563 0.136 9.34); /* darkened,       4.52:1 */
+  --plan-surface-alpha: 0.12;
+
+  --font-sans: 'Space Grotesk Variable', 'Space Grotesk', system-ui, -apple-system, 'Segoe UI',
+    Roboto, Helvetica, Arial, sans-serif;
+  --font-serif: Georgia, serif;
+  --font-mono: 'Geist Mono Variable', 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --radius: 0.5rem;
+  --shadow-2xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.09);
+  --shadow-xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.09);
+  --shadow-sm: 0px 1px 2px 0px hsl(0 0% 0% / 0.18), 0px 1px 2px -1px hsl(0 0% 0% / 0.18);
+  --shadow: 0px 1px 2px 0px hsl(0 0% 0% / 0.18), 0px 1px 2px -1px hsl(0 0% 0% / 0.18);
+  --shadow-md: 0px 1px 2px 0px hsl(0 0% 0% / 0.18), 0px 2px 4px -1px hsl(0 0% 0% / 0.18);
+  --shadow-lg: 0px 1px 2px 0px hsl(0 0% 0% / 0.18), 0px 4px 6px -1px hsl(0 0% 0% / 0.18);
+  --shadow-xl: 0px 1px 2px 0px hsl(0 0% 0% / 0.18), 0px 8px 10px -1px hsl(0 0% 0% / 0.18);
+  --shadow-2xl: 0px 1px 2px 0px hsl(0 0% 0% / 0.45);
+}
+
+.dark {
+  --background: oklch(0 0 0);
+  --foreground: oklch(1 0 0);
+  --card: oklch(0.14 0 0);
+  --card-foreground: oklch(1 0 0);
+  --popover: oklch(0.18 0 0);
+  --popover-foreground: oklch(1 0 0);
+
+  --primary: oklch(0.507 0.186 16.06);
+  --primary-foreground: oklch(1 0 0);
+
+  --secondary: oklch(0.25 0 0);
+  --secondary-foreground: oklch(1 0 0);
+  --muted: oklch(0.23 0 0);
+  --muted-foreground: oklch(0.72 0 0);
+  --accent: oklch(0.32 0 0);
+  --accent-foreground: oklch(1 0 0);
+  --destructive: oklch(0.69 0.2 23.91);
+  --destructive-foreground: oklch(0 0 0);
+  --border: oklch(0.26 0 0);
+  --input: oklch(0.32 0 0);
+
+  /* Lifted from brand crimson. #b71d3f against dark surfaces measures
+   * 2.65:1 on card, 2.41:1 on sidebar and 2.08:1 on muted — all below the
+   * 3:1 WCAG 1.4.11 requires for non-text UI. This value clears 3:1 on every
+   * dark surface (3.00 muted / 3.48 sidebar / 3.82 card / 4.71 background)
+   * while keeping the hue and chroma. */
+  --ring: oklch(0.593 0.186 16.06);
+
+  --chart-1: oklch(0.661 0.186 16.06);
+  --chart-2: oklch(0.775 0.136 9.34);
+  --chart-3: oklch(0.641 0.036 13.71);
+  --chart-4: oklch(0.722 0.204 15.6);
+  --chart-5: oklch(0.56 0 0);
+
+  --sidebar: oklch(0.18 0 0);
+  --sidebar-foreground: oklch(1 0 0);
+  --sidebar-primary: oklch(0.661 0.186 16.06);
+  --sidebar-primary-foreground: oklch(0 0 0);
+  --sidebar-accent: oklch(0.32 0 0);
+  --sidebar-accent-foreground: oklch(1 0 0);
+  --sidebar-border: oklch(0.32 0 0);
+  --sidebar-ring: oklch(0.593 0.186 16.06);
+
+  --plan-free: oklch(0.641 0.036 13.71); /* lightened, 4.54:1 */
+  --plan-monthly: oklch(0.661 0.186 16.06); /* lightened, 4.51:1 */
+  --plan-lifetime: oklch(0.722 0.204 15.6); /* lightened, 4.52:1 */
+  --plan-payg: oklch(0.775 0.136 9.34); /* unchanged, 5.36:1 */
+  --plan-surface-alpha: 0.2;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-plan-free: var(--plan-free);
+  --color-plan-monthly: var(--plan-monthly);
+  --color-plan-lifetime: var(--plan-lifetime);
+  --color-plan-payg: var(--plan-payg);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-serif: var(--font-serif);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --shadow-2xs: var(--shadow-2xs);
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow: var(--shadow);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
+  --shadow-2xl: var(--shadow-2xl);
+}
+
+/* The kit's ported primitives reference `font-heading` on every Card, Dialog,
+ * Sheet and AlertDialog title, but nothing in the kit ever defines it — it is
+ * a silent no-op there. Defined here so those titles actually resolve. */
+@utility font-heading {
+  font-family: var(--font-sans);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+    margin: 0;
+  }
+
+  /* Tabular figures everywhere numbers are compared in a column. */
+  th,
+  td {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  /* Sidebar scrollbar. The kit relies on `no-scrollbar` (hidden), which is
+   * wrong for a nav that can overflow — an invisible scrollbar hides the fact
+   * that there is more nav below. Thin and themed instead. */
+  .mf-scroll-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  .mf-scroll-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .mf-scroll-thin::-webkit-scrollbar-thumb {
+    background-color: var(--border);
+    border-radius: 3px;
+  }
+  .mf-scroll-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+/* Route-change fade. The previous implementation ran a 240ms/12px transform on
+ * every navigation with no reduced-motion guard. */
+@media (prefers-reduced-motion: no-preference) {
+  .mf-route-fade {
+    animation: mf-route-fade-in 180ms ease-out;
+  }
+  @keyframes mf-route-fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}

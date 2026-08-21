@@ -1,10 +1,14 @@
 import { ReactNode } from 'react'
-import { Typography } from 'antd'
+
+import { cn } from '@/lib/utils'
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 /**
  * Card with a real header row (title, optional description, optional extra
- * slot) and consistent padding. Antd's `<Card title=...>` gives a cramped
- * single-line header with no room for a description.
+ * slot). Props unchanged from the Antd version.
+ *
+ * `noPadding` maps to a flush CardContent, which is what table-in-a-card wants
+ * so the table's own cell padding provides the rhythm.
  */
 export default function SectionCard({
   title,
@@ -22,23 +26,15 @@ export default function SectionCard({
   noPadding?: boolean
 }) {
   return (
-    <section className="mf-card">
+    <Card>
       {(title || extra) && (
-        <header className="mf-card__head">
-          <div className="mf-card__head-text">
-            {title && <Typography.Text className="mf-card__title">{title}</Typography.Text>}
-            {description && (
-              <Typography.Text type="secondary" className="mf-card__desc">
-                {description}
-              </Typography.Text>
-            )}
-          </div>
-          {extra && <div className="mf-card__extra">{extra}</div>}
-        </header>
+        <CardHeader>
+          {title && <CardTitle>{title}</CardTitle>}
+          {description && <CardDescription>{description}</CardDescription>}
+          {extra && <CardAction>{extra}</CardAction>}
+        </CardHeader>
       )}
-      <div className={`mf-card__body${noPadding ? ' mf-card__body--flush' : ''} ${bodyClassName ?? ''}`}>
-        {children}
-      </div>
-    </section>
+      <CardContent className={cn(noPadding && 'px-0', bodyClassName)}>{children}</CardContent>
+    </Card>
   )
 }

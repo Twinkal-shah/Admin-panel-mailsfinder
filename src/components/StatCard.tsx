@@ -1,6 +1,9 @@
 import { ReactNode } from 'react'
-import { Typography } from 'antd'
-import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons'
+import { ArrowDown, ArrowUp } from 'lucide-react'
+
+import { cn } from '@/lib/utils'
+import { Card } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export interface StatCardProps {
   label: string
@@ -13,11 +16,19 @@ export interface StatCardProps {
   loading?: boolean
 }
 
+/* Up is chart-2 (the light end of the crimson ramp) and down is destructive.
+ * The old implementation used a lone #4ade80 green, the only non-brand hue in
+ * the system. */
 function DeltaPill({ delta }: { delta: number }) {
   const positive = delta >= 0
   return (
-    <span className={`mf-delta ${positive ? 'mf-delta--up' : 'mf-delta--down'}`}>
-      {positive ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
+    <span
+      className={cn(
+        'inline-flex items-center gap-0.5 rounded-4xl px-1.5 py-0.5 text-xs font-medium tabular-nums',
+        positive ? 'bg-chart-2/15 text-chart-2' : 'bg-destructive/10 text-destructive'
+      )}
+    >
+      {positive ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />}
       {Math.abs(delta).toFixed(1)}%
     </span>
   )
@@ -26,28 +37,31 @@ function DeltaPill({ delta }: { delta: number }) {
 export default function StatCard({ label, value, hint, icon, delta, loading }: StatCardProps) {
   if (loading) {
     return (
-      <div className="mf-stat mf-stat--loading" aria-busy="true">
-        <div className="mf-stat__top">
-          <span className="mf-skel mf-skel--label" />
-          <span className="mf-skel mf-skel--icon" />
+      <Card size="sm" className="gap-2 px-3" aria-busy="true">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-3 w-20" />
+          <Skeleton className="size-4 rounded-sm" />
         </div>
-        <span className="mf-skel mf-skel--value" />
-        <span className="mf-skel mf-skel--hint" />
-      </div>
+        <Skeleton className="h-7 w-24" />
+        <Skeleton className="h-3 w-16" />
+      </Card>
     )
   }
 
   return (
-    <div className="mf-stat">
-      <div className="mf-stat__top">
-        <Typography.Text className="mf-stat__label">{label}</Typography.Text>
-        {icon && <span className="mf-stat__icon">{icon}</span>}
+    <Card size="sm" className="gap-2 px-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className="truncate text-xs font-medium text-muted-foreground">{label}</span>
+        {icon && <span className="text-muted-foreground [&>svg]:size-4">{icon}</span>}
       </div>
-      <div className="mf-stat__value">{value}</div>
-      <div className="mf-stat__foot">
+      {/* aria-live so a stale -> fresh refresh is announced rather than silent. */}
+      <div className="text-2xl font-semibold tabular-nums" aria-live="polite">
+        {value}
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
         {delta !== undefined && Number.isFinite(delta) && <DeltaPill delta={delta} />}
-        {hint && <Typography.Text className="mf-stat__hint">{hint}</Typography.Text>}
+        {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
       </div>
-    </div>
+    </Card>
   )
 }

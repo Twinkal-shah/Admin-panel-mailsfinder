@@ -1,11 +1,15 @@
 import { ConfigProvider, theme } from 'antd'
 import { Route, Routes, Navigate } from 'react-router-dom'
+import { useTheme } from 'next-themes'
 import LayoutShell from './components/LayoutShell'
 import Login from './pages/Login'
 import RouteFallback from './components/RouteFallback'
 import { useAuthStore } from './store/auth'
 import { setUnauthorizedHandler } from './utils/api'
-import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
+import { ThemeProvider } from './components/theme-provider'
+import { Toaster } from '@/components/ui/sonner'
+import { TooltipProvider } from '@/components/ui/tooltip'
+import { Suspense, lazy, useEffect, useMemo } from 'react'
 
 // Route-level splitting. Previously every page (plus recharts and
 // react-markdown) shipped in one ~1.9MB chunk that had to parse before
@@ -23,16 +27,12 @@ function ProtectedRoute({ children }: { children: JSX.Element }) {
   return children
 }
 
-export default function App() {
-  const [isDark, setIsDark] = useState(() => {
-    const saved = localStorage.getItem('theme')
-    return saved ? saved === 'dark' : true
-  })
-
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light')
-    localStorage.setItem('theme', isDark ? 'dark' : 'light')
-  }, [isDark])
+/* Antd is still rendering the 7 pages during this stage, so its ConfigProvider
+ * stays mounted and keeps following the theme. Both this component and the
+ * whole ConfigProvider block come out once the last page is converted. */
+function AntdBridge({ children }: { children: JSX.Element }) {
+  const { resolvedTheme } = useTheme()
+  const isDark = resolvedTheme !== 'light'
 
   const { restoreFromToken, logout } = useAuthStore()
   useEffect(() => {
@@ -88,24 +88,39 @@ export default function App() {
         token: tokens
       }}
     >
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <LayoutShell isDark={isDark} onToggleTheme={setIsDark} />
-            </ProtectedRoute>
-          }
-        >
-          <Route index element={<Suspense fallback={<RouteFallback />}><Dashboard /></Suspense>} />
-          <Route path="users" element={<Suspense fallback={<RouteFallback />}><UsersList /></Suspense>} />
-          <Route path="users/:id" element={<Suspense fallback={<RouteFallback />}><UserDetail /></Suspense>} />
-          <Route path="content" element={<Suspense fallback={<RouteFallback />}><CMSLite /></Suspense>} />
-          <Route path="apikeys" element={<Suspense fallback={<RouteFallback />}><ApiKeys /></Suspense>} />
-          <Route path="audit" element={<Suspense fallback={<RouteFallback />}><AuditLogs /></Suspense>} />
-        </Route>
-      </Routes>
+      {children}
     </ConfigProvider>
+  )
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <TooltipProvider>
+        <AntdBridge>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <LayoutShell />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Suspense fallback={<RouteFallback />}><Dashboard /></Suspense>} />
+              <Route path="users" element={<Suspense fallback={<RouteFallback />}><UsersList /></Suspense>} />
+              <Route path="users/:id" element={<Suspense fallback={<RouteFallback />}><UserDetail /></Suspense>} />
+              <Route path="content" element={<Suspense fallback={<RouteFallback />}><CMSLite /></Suspense>} />
+              <Route path="apikeys" element={<Suspense fallback={<RouteFallback />}><ApiKeys /></Suspense>} />
+              <Route path="audit" element={<Suspense fallback={<RouteFallback />}><AuditLogs /></Suspense>} />
+            </Route>
+          </Routes>
+        </AntdBridge>
+        {/* The kit never mounts TooltipProvider or a Toaster; both belong at the
+            root. Toaster replaces Antd's static `message.*` in stage 2. */}
+        <Toaster position="bottom-right" />
+      </TooltipProvider>
+    </ThemeProvider>
   )
 }

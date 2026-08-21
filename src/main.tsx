@@ -5,6 +5,11 @@ import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import App from './App'
+/* Order is load-bearing while both systems coexist: Tailwind tokens and its
+ * @layer base first, then antd's reset, then the legacy mf-* sheet that the
+ * not-yet-converted pages still depend on. ui.css and antd/dist/reset.css both
+ * come out at the end of stage 2. */
+import './styles/globals.css'
 import 'antd/dist/reset.css'
 import './styles/ui.css'
 

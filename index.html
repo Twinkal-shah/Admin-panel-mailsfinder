@@ -1,138 +1,112 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
     <title>MailsFinder Admin</title>
-    <!-- Apply the saved theme before first paint. `data-theme` is hardcoded to
-         dark below, so a light-mode user previously saw a dark flash until
-         React's effect ran. Same storage key and same default as App.tsx. -->
+
+    <!-- Apply the saved theme before first paint. shadcn tokens key off the
+         `.dark` CLASS (see @custom-variant in globals.css), not an attribute.
+         Same storage key and same default as the ThemeProvider, so an existing
+         `theme: 'light'` preference is honoured with no flash. -->
     <script>
       try {
         var saved = localStorage.getItem('theme');
-        document.documentElement.setAttribute('data-theme', saved === 'light' ? 'light' : 'dark');
+        var dark = saved !== 'light';
+        // `.dark` class drives the shadcn tokens; `data-theme` keeps the legacy
+        // ui.css --mf-* tokens alive until that sheet is deleted in stage 2.
+        document.documentElement.classList.toggle('dark', dark);
+        document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
       } catch (e) {}
     </script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <!-- Loaded async: as a plain stylesheet this blocked first paint by ~200ms+.
-         Same font, same weights — `display=swap` means text paints immediately
-         in the fallback and reflows to Space Grotesk when it lands. -->
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap"
-      media="print"
-      onload="this.media='all'"
-    >
-    <noscript>
-      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap">
-    </noscript>
+
+    <!-- Space Grotesk and Geist Mono are self-hosted via @fontsource-variable
+         and imported from globals.css. No third-party font request, so there is
+         no render-blocking stylesheet and no swap flash to work around. -->
+
     <style>
-      html, body, #root { height: 100%; }
-      body { margin: 0; }
-      /* Match the production frontend font (Space Grotesk) across all Antd primitives */
+      /* Only the pre-React boot shell lives here. Everything else is a Tailwind
+         token in src/styles/globals.css — this file no longer carries a second
+         palette or any .ant-* override. The few values below are duplicated
+         from the token file by necessity: they must paint before any CSS
+         module has loaded. */
+      html,
       body,
-      #root,
-      .ant-typography,
-      .ant-btn,
-      .ant-menu,
-      .ant-input,
-      .ant-select,
-      .ant-select-selector,
-      .ant-table,
-      .ant-modal,
-      .ant-modal-content,
-      .ant-layout,
-      .ant-card,
-      .ant-dropdown-menu {
-        font-family: "Space Grotesk", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol" !important;
+      #root {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        background: oklch(0.99 0 0);
+      }
+      html.dark body {
+        background: oklch(0 0 0);
       }
 
-      /* Light theme variables (matches production frontend) */
-      :root[data-theme="light"] {
-        --bg: #fbf9f8;
-        --panel: #fbf9f8;
-        --muted: #5a4042;
-        --text: #1b1c1b;
-        --primary: #b71d3f;
-        --accent: #fc536d;
-        --border: rgba(226, 190, 191, 0.3);
-      }
-
-      /* Dark theme variables (matches production frontend) */
-      :root[data-theme="dark"] {
-        --bg: #1b1c1b;
-        --panel: #2a2a2a;
-        --muted: #e2bebf;
-        --text: #fbf9f8;
-        --primary: #b71d3f;
-        --accent: #fc536d;
-        --border: rgba(183, 29, 63, 0.25);
-        --sidebar: #121212;
-        --sidebar-accent: #1f1f1f;
-      }
-
-      html[data-theme="dark"] body {
-        background: var(--bg);
-        color: var(--text);
-      }
-      html[data-theme="dark"] .ant-layout,
-      html[data-theme="dark"] .ant-card,
-      html[data-theme="dark"] .ant-table,
-      html[data-theme="dark"] .ant-modal-content,
-      html[data-theme="dark"] .ant-dropdown-menu {
-        background: var(--panel) !important;
-        color: var(--text) !important;
-      }
-      html[data-theme="dark"] .ant-typography,
-      html[data-theme="dark"] .ant-input,
-      html[data-theme="dark"] .ant-select-selector,
-      html[data-theme="dark"] .ant-btn,
-      html[data-theme="dark"] .ant-form-item-label > label {
-        color: var(--text) !important;
-      }
-
-      /* Pre-React boot shell. Paints the sidebar + header silhouette from the
-         first HTML byte so a cold load never shows an empty page while the JS
-         chunks stream in. React unmounts it on first render. */
+      /* Silhouette of the real shell: inset sidebar with an 8px gutter, a
+         rounded content pane and a 64px header. Matching the new geometry means
+         a cold load cannot flash a layout that then jumps. */
       #boot-shell {
         position: fixed;
         inset: 0;
         display: flex;
-        background: var(--bg, #1b1c1b);
+        padding: 8px;
+        background: oklch(0.99 0 0);
+        color: oklch(0 0 0);
+      }
+      html.dark #boot-shell {
+        background: oklch(0.18 0 0);
+        color: oklch(1 0 0);
       }
       #boot-shell .bs-side {
-        width: 248px;
+        width: 16rem;
         flex: none;
-        background: var(--sidebar, #121212);
-        border-right: 1px solid var(--border, rgba(183, 29, 63, 0.25));
+        padding: 8px;
       }
-      :root[data-theme="light"] #boot-shell .bs-side {
-        background: #ffffff;
+      #boot-shell .bs-main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        border-radius: 12px;
+        overflow: hidden;
+        background: oklch(1 0 0);
       }
-      #boot-shell .bs-main { flex: 1; display: flex; flex-direction: column; }
+      html.dark #boot-shell .bs-main {
+        background: oklch(0 0 0);
+      }
       #boot-shell .bs-top {
-        height: 60px;
+        height: 64px;
         flex: none;
-        border-bottom: 1px solid var(--border, rgba(183, 29, 63, 0.25));
+        border-bottom: 1px solid oklch(0.92 0 0);
+      }
+      html.dark #boot-shell .bs-top {
+        border-bottom-color: oklch(0.26 0 0);
       }
       #boot-shell .bs-brand {
-        margin: 18px;
-        height: 34px;
-        width: 34px;
-        border-radius: 9px;
-        background-image: linear-gradient(135deg, #b71d3f, #fc536d);
+        height: 32px;
+        width: 32px;
+        border-radius: 8px;
+        margin-bottom: 16px;
+        background: oklch(0.507 0.186 16.06);
       }
       #boot-shell .bs-bar {
-        margin: 12px 18px;
-        height: 34px;
-        border-radius: 8px;
+        height: 32px;
+        border-radius: 6px;
+        margin-bottom: 4px;
         background: currentColor;
         opacity: 0.06;
       }
-      #boot-shell .bs-body { flex: 1; padding: 12px; color: var(--text, #fbf9f8); }
       @media (max-width: 767px) {
-        #boot-shell .bs-side { display: none; }
+        #boot-shell .bs-side {
+          display: none;
+        }
+        #boot-shell {
+          padding: 0;
+        }
+        #boot-shell .bs-main {
+          border-radius: 0;
+        }
       }
     </style>
   </head>
@@ -149,10 +123,14 @@
         </div>
         <div class="bs-main">
           <div class="bs-top"></div>
-          <div class="bs-body"></div>
         </div>
       </div>
     </div>
+    <noscript>
+      <p style="font-family: system-ui, sans-serif; padding: 24px">
+        The MailsFinder admin panel needs JavaScript enabled.
+      </p>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

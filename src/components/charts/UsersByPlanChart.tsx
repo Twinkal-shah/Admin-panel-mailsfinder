@@ -1,8 +1,13 @@
-import { theme, Typography } from 'antd'
-import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts'
-import { PLAN_COLORS } from '../../ui/planTheme'
+import { Cell, Pie, PieChart } from 'recharts'
+
+import { planColor, planDotStyle } from '../../ui/planTheme'
 import { PLAN_DISPLAY_NAME, Plan } from '../../types/types'
-import { useIsDark } from '../../ui/useIsDark'
+import {
+  ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent
+} from '@/components/ui/chart'
 
 export interface PlanSlice {
   name: Plan
@@ -11,6 +16,19 @@ export interface PlanSlice {
   [key: string]: unknown
 }
 
+const chartConfig: ChartConfig = {
+  free: { label: PLAN_DISPLAY_NAME.free },
+  monthly: { label: PLAN_DISPLAY_NAME.monthly },
+  lifetime: { label: PLAN_DISPLAY_NAME.lifetime },
+  payg: { label: PLAN_DISPLAY_NAME.payg }
+}
+
+/**
+ * Users-by-plan donut with its own legend.
+ *
+ * Slice colours come from the themed `--plan-*` tokens, so this no longer needs
+ * `useIsDark` or Antd's `theme.useToken()` to choose a palette per theme.
+ */
 export default function UsersByPlanChart({
   data,
   total,
@@ -20,31 +38,31 @@ export default function UsersByPlanChart({
   total: number
   height?: number
 }) {
-  const { token } = theme.useToken()
-  const isDark = useIsDark()
-  const surface = isDark ? '#1b1c1b' : '#ffffff'
-
   return (
-    <div className="mf-donut">
-      <div className="mf-donut__chart" style={{ height }}>
-        <ResponsiveContainer width="100%" height="100%">
+    <div className="flex h-full flex-col gap-4">
+      <div className="relative" style={{ minHeight: height }}>
+        <ChartContainer config={chartConfig} className="aspect-auto size-full">
           <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
-            <Tooltip
-              formatter={(value: number, name: string) => {
-                const pct = total > 0 ? Math.round((value / total) * 100) : 0
-                return [`${pct}% · ${value.toLocaleString()} users`, PLAN_DISPLAY_NAME[name as Plan] ?? name]
-              }}
-              contentStyle={{
-                background: surface,
-                border: `1px solid ${token.colorBorder}`,
-                borderRadius: 10,
-                boxShadow: isDark
-                  ? '0 10px 32px rgba(0,0,0,0.45)'
-                  : '0 10px 28px rgba(91, 28, 47, 0.12)',
-                fontSize: 12
-              }}
-              labelStyle={{ color: token.colorText, fontWeight: 600 }}
-              itemStyle={{ color: token.colorText }}
+            <ChartTooltip
+              content={
+                <ChartTooltipContent
+                  hideLabel
+                  formatter={(value, name) => {
+                    const v = Number(value)
+                    const pct = total > 0 ? Math.round((v / total) * 100) : 0
+                    return (
+                      <div className="flex flex-1 items-center justify-between gap-3">
+                        <span className="text-muted-foreground">
+                          {PLAN_DISPLAY_NAME[name as Plan] ?? name}
+                        </span>
+                        <span className="font-mono font-medium tabular-nums">
+                          {pct}% · {v.toLocaleString()}
+                        </span>
+                      </div>
+                    )
+                  }}
+                />
+              }
             />
             <Pie
               data={data}
@@ -59,28 +77,34 @@ export default function UsersByPlanChart({
               label={false}
               labelLine={false}
             >
-              {data.map(entry => (
-                <Cell key={entry.name} fill={PLAN_COLORS[entry.name]} />
+              {data.map((entry) => (
+                <Cell key={entry.name} fill={planColor(entry.name)} />
               ))}
             </Pie>
           </PieChart>
-        </ResponsiveContainer>
-        <div className="mf-donut__center">
-          <span className="mf-donut__total">{total.toLocaleString()}</span>
-          <span className="mf-donut__caption">users</span>
+        </ChartContainer>
+
+        {/* Centre label sits over the donut hole. */}
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-2xl font-semibold tabular-nums">{total.toLocaleString()}</span>
+          <span className="text-xs text-muted-foreground">users</span>
         </div>
       </div>
 
-      <ul className="mf-legend">
-        {data.map(item => {
+      <ul className="flex flex-col gap-1.5">
+        {data.map((item) => {
           const pct = total > 0 ? Math.round((item.value / total) * 100) : 0
           return (
-            <li key={item.name} className="mf-legend__row">
-              <span className="mf-legend__dot" style={{ background: PLAN_COLORS[item.name] }} />
-              <span className="mf-legend__name">{PLAN_DISPLAY_NAME[item.name] ?? item.name}</span>
-              <Typography.Text type="secondary" className="mf-legend__value">
+            <li key={item.name} className="flex items-center gap-2 text-sm">
+              <span
+                className="size-2 shrink-0 rounded-full"
+                style={planDotStyle(item.name)}
+                aria-hidden="true"
+              />
+              <span className="truncate">{PLAN_DISPLAY_NAME[item.name] ?? item.name}</span>
+              <span className="ml-auto text-xs tabular-nums text-muted-foreground">
                 {item.value.toLocaleString()} · {pct}%
-              </Typography.Text>
+              </span>
             </li>
           )
         })}

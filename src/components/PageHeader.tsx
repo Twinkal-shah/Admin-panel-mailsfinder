@@ -1,10 +1,10 @@
 import { ReactNode } from 'react'
-import { Typography } from 'antd'
 
 /**
- * One consistent page title block for every route. Replaces the ad-hoc
- * `<Typography.Title level={3}>` + flex row that each page reimplemented
- * slightly differently.
+ * One consistent page title block for every route.
+ *
+ * Props unchanged from the Antd version so all six call sites keep compiling
+ * while their pages are still being converted.
  */
 export default function PageHeader({
   title,
@@ -16,18 +16,12 @@ export default function PageHeader({
   actions?: ReactNode
 }) {
   return (
-    <div className="mf-page-header">
-      <div className="mf-page-header__text">
-        <Typography.Title level={3} className="mf-page-header__title">
-          {title}
-        </Typography.Title>
-        {subtitle && (
-          <Typography.Text type="secondary" className="mf-page-header__subtitle">
-            {subtitle}
-          </Typography.Text>
-        )}
+    <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="min-w-0 space-y-1">
+        <h2 className="font-heading truncate text-xl font-semibold tracking-tight">{title}</h2>
+        {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
       </div>
-      {actions && <div className="mf-page-header__actions">{actions}</div>}
+      {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
     </div>
   )
 }
