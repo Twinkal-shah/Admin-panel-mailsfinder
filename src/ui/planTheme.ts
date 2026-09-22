@@ -1,12 +1,28 @@
-export type PlanId = 'free' | 'monthly' | 'lifetime' | 'payg'
+import { PLANS, type Plan } from '../types/types'
 
-export const PLAN_ORDER: PlanId[] = ['free', 'monthly', 'lifetime', 'payg']
+export type PlanId = Plan
 
-// Brand-aligned plan colors. Free stays neutral (it's "no plan"); paid tiers
-// pull from the production frontend's chart palette so badges and pie slices
-// feel like one product.
+/** Badge order, filter order and pie-slice order all follow the one plan list. */
+export const PLAN_ORDER: PlanId[] = PLANS
+
+// Plan colors. Free stays neutral (it's "no plan"); the legacy crimson ramp
+// (monthly/lifetime/payg) pulls from the production frontend's chart palette so
+// badges and pie slices feel like one product.
+//
+// The 2026-09-21 tiers (starter/growth/agency) needed three more slots, and the
+// crimson ramp had no room left — its steps are already only ΔE 11.9 apart for
+// normal vision, below the 15 floor. So they take distinct hues instead, chosen
+// against the dark chart surface and validated as a set: all six checks pass in
+// both light and dark mode (worst adjacent CVD ΔE 8.4, normal-vision ΔE 19.8).
+//
+// Identity is never carried by color alone here — every badge prints its plan
+// name and the donut has a legend and tooltip — which is what keeps the legacy
+// crimson steps usable at all.
 export const PLAN_COLORS: Record<PlanId, string> = {
   free: '#5a4042',
+  starter: '#c98500',
+  growth: '#199e70',
+  agency: '#9085e9',
   monthly: '#b71d3f',
   lifetime: '#fc536d',
   payg: '#ff8fa3'

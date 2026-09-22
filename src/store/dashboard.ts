@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import dayjs from 'dayjs'
-import { ApiKey, AuditRow, Plan, Purchase, User } from '../types/types'
+import { ApiKey, AuditRow, Plan, Purchase, User, normalizePlan } from '../types/types'
 import { mapApiKey, mapUser } from '../utils/mappers'
 import { useDataStore } from './data'
 import { apiFetch } from '../utils/api'
@@ -39,13 +39,6 @@ interface BootstrapResult {
   }
   fetchedAt: number
   durationMs: number
-}
-
-const PLANS: Plan[] = ['free', 'monthly', 'lifetime', 'payg']
-
-function normalizePlan(raw: unknown): Plan {
-  const value = String(raw ?? 'free').toLowerCase()
-  return (PLANS as string[]).includes(value) ? (value as Plan) : 'free'
 }
 
 function parseBootstrap(body: any, durationMs: number): BootstrapResult {
