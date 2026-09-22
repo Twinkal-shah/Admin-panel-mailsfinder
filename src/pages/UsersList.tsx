@@ -3,7 +3,7 @@ import { useDataStore } from '../store/data'
 import { Button, Form, Input, Modal, Select, Table, Tag, Typography, DatePicker, Grid, Alert, message } from 'antd'
 import { ReloadOutlined, TeamOutlined } from '@ant-design/icons'
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table'
-import { PLAN_DISPLAY_NAME, User } from '../types/types'
+import { PLANS, PLAN_DISPLAY_NAME, User } from '../types/types'
 import { PLAN_COLORS, PLAN_ORDER, badgeStyles, rowAccentStyle } from '../ui/planTheme'
 import { mapUser } from '../utils/mappers'
 import PageHeader from '../components/PageHeader'
@@ -312,7 +312,7 @@ export default function UsersList() {
       const patch: any = {}
       const nextPlan = String(values.plan ?? '').toLowerCase()
       if (nextPlan && nextPlan !== editingUser.plan) {
-        if ((['free', 'monthly', 'lifetime', 'payg'] as const).includes(nextPlan as any)) {
+        if ((PLANS as string[]).includes(nextPlan)) {
           patch.plan = nextPlan
         }
       }

@@ -1,12 +1,62 @@
-export type Plan = 'free' | 'monthly' | 'lifetime' | 'payg'
+export type Plan =
+  | 'free'
+  | 'starter'
+  | 'growth'
+  | 'agency'
+  | 'monthly' // legacy tier — grandfathered subscribers only, closed to new checkouts
+  | 'lifetime'
+  | 'payg'
 export type SubscriptionStatus = 'active' | 'cancelled' | 'past_due' | 'none'
 export type CountryCode = string
 
+/**
+ * Every plan the backend can send, in display order.
+ *
+ * This is the ONE list. `normalizePlan`, `PLAN_ORDER` (badge colors, filter
+ * dropdowns) and the plan edit form all read from it, so a new tier can't be
+ * added to some of them and forgotten in the others — which is exactly how
+ * Starter/Growth/Agency customers ended up rendering as "Free".
+ *
+ * Mirrors `PlanCode` in the backend's `billing/constants/plan.catalog.ts`.
+ */
+export const PLANS: Plan[] = [
+  'free',
+  'starter',
+  'growth',
+  'agency',
+  'monthly',
+  'lifetime',
+  'payg'
+]
+
 export const PLAN_DISPLAY_NAME: Record<Plan, string> = {
   free: 'Free',
-  monthly: 'Monthly',
+  starter: 'Starter',
+  growth: 'Growth',
+  agency: 'Agency',
+  // Backend calls this "Monthly (legacy)". Worth surfacing: these subscribers
+  // are grandfathered on 300k credits/cycle and exempt from cycle expiry.
+  monthly: 'Monthly (legacy)',
   lifetime: 'Lifetime',
   payg: 'Pay-as-you-go'
+}
+
+/**
+ * Read a plan value coming off the API.
+ *
+ * Unknown values still fall back to 'free' so the table keeps rendering, but
+ * they now warn. The silent fallback is what hid the new pricing tiers for as
+ * long as it did.
+ */
+export function normalizePlan(raw: unknown): Plan {
+  const value = String(raw ?? 'free').trim().toLowerCase()
+  if ((PLANS as string[]).includes(value)) return value as Plan
+  if (value && value !== 'free') {
+    console.warn(
+      `[admin] Unknown plan "${value}" from API — rendering as Free. Add it to PLANS in src/types/types.ts.`
+    )
+  }
+  return 'free'
 }
 
 export interface User {

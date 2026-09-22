@@ -1,4 +1,4 @@
-import { ApiKey, ContentItem, User } from '../types/types'
+import { ApiKey, ContentItem, User, normalizePlan } from '../types/types'
 
 export function mapContent(raw: any): ContentItem {
   return {
@@ -17,11 +17,7 @@ export function mapContent(raw: any): ContentItem {
 }
 
 export function mapUser(raw: any): User {
-  const planRaw = String(raw.plan ?? 'free').toLowerCase()
-  const plan: User['plan'] =
-    planRaw === 'monthly' || planRaw === 'lifetime' || planRaw === 'payg'
-      ? (planRaw as User['plan'])
-      : 'free'
+  const plan: User['plan'] = normalizePlan(raw.plan)
 
   const subsRaw: string =
     raw.subscription?.status ??
@@ -55,7 +51,20 @@ export function mapUser(raw: any): User {
     raw.payg_balance != null ||
     raw.free_daily_balance != null
   ) {
-    available_credits = monthly_balance + lifetime_balance + payg_balance + free_daily_balance
+    // Only free users can actually spend the daily free allowance — a paid
+    // user's lookups come out of their plan bucket, so adding `free` here
+    // overstated them by up to 100 (a Starter user rendered as 75,094 rather
+    // than 75,000). Mirrors the backend's own rule in
+    // admin/services/user.management.service.ts.
+    //
+    // This branch only runs for /userManagement/getAllUsers, which returns the
+    // raw user document via stripSensitive() and therefore carries no
+    // `available_credits` field of its own.
+    available_credits =
+      monthly_balance +
+      lifetime_balance +
+      payg_balance +
+      (plan === 'free' ? free_daily_balance : 0)
   } else {
     // Legacy fallback. NEVER sum credits_find + credits_verify — they're
     // identical mirrors of available_credits on the backend now.
