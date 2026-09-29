@@ -3,7 +3,7 @@ import { useDataStore } from '../store/data'
 import { useMemo, useState } from 'react'
 import { Card, Descriptions, Typography, Row, Col, Button, Modal, Form, Input, InputNumber, Progress, Table, Tag, message } from 'antd'
 import dayjs from 'dayjs'
-import { ApiKey, PLAN_DISPLAY_NAME, Purchase } from '../types/types'
+import { ApiKey, planDisplayName, Purchase } from '../types/types'
 import { useAuthStore } from '../store/auth'
 import { hasScope } from '../store/rbac'
 import { mapUser } from '../utils/mappers'
@@ -336,7 +336,9 @@ export default function UserDetail() {
 
       <Card title="Plan & Subscription">
         <Descriptions column={{ xs: 1, sm: 2 }} bordered size="small">
-          <Descriptions.Item label="plan">{PLAN_DISPLAY_NAME[user.plan]}</Descriptions.Item>
+          <Descriptions.Item label="plan">
+            {planDisplayName(user.plan, user.billing_cycle)}
+          </Descriptions.Item>
           <Descriptions.Item label="subscription status">
             {user.subscription?.status ?? user.subscription_status ?? '-'}
           </Descriptions.Item>

@@ -3,7 +3,7 @@ import { useDataStore } from '../store/data'
 import { Button, Form, Input, Modal, Select, Table, Tag, Typography, DatePicker, Grid, Alert, message } from 'antd'
 import { ReloadOutlined, TeamOutlined } from '@ant-design/icons'
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table'
-import { PLANS, PLAN_DISPLAY_NAME, User } from '../types/types'
+import { PLANS, PLAN_DISPLAY_NAME, planDisplayName, User } from '../types/types'
 import { PLAN_COLORS, PLAN_ORDER, badgeStyles, rowAccentStyle } from '../ui/planTheme'
 import { mapUser } from '../utils/mappers'
 import PageHeader from '../components/PageHeader'
@@ -129,7 +129,13 @@ export default function UsersList() {
     })
   }, [users, filters])
 
-  function PlanBadge({ plan }: { plan: User['plan'] }) {
+  function PlanBadge({
+    plan,
+    billingCycle
+  }: {
+    plan: User['plan']
+    billingCycle?: User['billing_cycle']
+  }) {
     const s = badgeStyles(plan as any, isDarkMode)
     const [hover, setHover] = useState(false)
     return (
@@ -144,7 +150,7 @@ export default function UsersList() {
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
       >
-        {PLAN_DISPLAY_NAME[plan]}
+        {planDisplayName(plan, billingCycle)}
       </Tag>
     )
   }
@@ -161,7 +167,7 @@ export default function UsersList() {
         const status = u.subscription?.status ?? u.subscription_status
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <PlanBadge plan={u.plan} />
+            <PlanBadge plan={u.plan} billingCycle={u.billing_cycle} />
             {status && status !== 'none' && (
               <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                 {u.plan} · {status}

@@ -42,6 +42,38 @@ export const PLAN_DISPLAY_NAME: Record<Plan, string> = {
 }
 
 /**
+ * Plan codes that can be bought on an annual term, and so can carry the
+ * "Annual" suffix. `monthly` is excluded on purpose: it is the closed legacy
+ * tier and already renders its own "(legacy)" marker. Free / PAYG / Lifetime
+ * have no billing cycle to qualify.
+ */
+const ANNUAL_SUFFIXED_PLANS: Plan[] = ['starter', 'growth', 'agency']
+
+/**
+ * Plan label for a SINGLE user, qualified with the billing term.
+ *
+ * An annual subscriber renders as "Starter Annual" rather than "Starter", so
+ * the term is visible in the users table and on the user page without having
+ * to cross-reference the separate "billing cycle" field.
+ *
+ * Aggregate views — the users-by-plan chart, the dashboard breakdown and the
+ * plan filter dropdown — deliberately keep using PLAN_DISPLAY_NAME directly.
+ * Those group by plan CODE, where an annual suffix would be meaningless
+ * (monthly and annual subscribers share one bucket) and where the label has to
+ * keep matching the value the filter sends to the API.
+ */
+export function planDisplayName(
+  plan: Plan,
+  billingCycle?: 'none' | 'monthly' | 'annual'
+): string {
+  const base = PLAN_DISPLAY_NAME[plan] ?? plan
+  if (billingCycle === 'annual' && ANNUAL_SUFFIXED_PLANS.includes(plan)) {
+    return `${base} Annual`
+  }
+  return base
+}
+
+/**
  * Read a plan value coming off the API.
  *
  * Unknown values still fall back to 'free' so the table keeps rendering, but
