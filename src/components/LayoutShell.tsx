@@ -6,6 +6,7 @@ import {
   AuditOutlined,
   ApiOutlined,
   FileTextOutlined,
+  GiftOutlined,
   MenuOutlined,
   MoonOutlined,
   SunOutlined,
@@ -29,6 +30,7 @@ const NAV_GROUPS = [
     label: 'Management',
     items: [
       { key: '/users', icon: <UserOutlined />, label: 'Users' },
+      { key: '/appsumo', icon: <GiftOutlined />, label: 'AppSumo' },
       { key: '/content', icon: <FileTextOutlined />, label: 'Content' }
     ]
   },
@@ -45,6 +47,7 @@ const NAV_GROUPS = [
 const PAGE_TITLES: Record<string, string> = {
   '/': 'Dashboard',
   '/users': 'Users',
+  '/appsumo': 'AppSumo',
   '/content': 'Content',
   '/apikeys': 'API Keys',
   '/audit': 'Audit'

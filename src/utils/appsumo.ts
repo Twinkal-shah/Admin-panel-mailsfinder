@@ -38,8 +38,23 @@ export interface AppsumoTierRow extends AppsumoTierDef {
   usersWithPurchase: number
 }
 
+export interface AppsumoUserRow {
+  userId: string
+  fullName: string
+  email: string
+  tier: AppsumoTierNumber
+  /** The tier's one-time grant (upgrades may have received more). */
+  creditsAllocated: number
+  creditsRemaining: number
+  /** Null when no paid AppSumo purchase record matched this user. */
+  amountPaid: number | null
+  createdAt: string | null
+  lastSeen: string | null
+}
+
 export interface AppsumoSummary {
   tiers: AppsumoTierRow[]
+  users: AppsumoUserRow[]
   totals: Omit<AppsumoTierRow, keyof AppsumoTierDef>
 }
 
@@ -71,6 +86,7 @@ function isAppsumoPurchasePlan(raw: unknown): boolean {
  */
 export function summarizeAppsumo(rawUsers: any[], rawPurchases: any[]): AppsumoSummary {
   const tierByUser = new Map<string, AppsumoTierNumber>()
+  const userRows = new Map<string, AppsumoUserRow>()
   const rows = new Map<AppsumoTierNumber, AppsumoTierRow>(
     APPSUMO_TIERS.map(def => [
       def.tier,
@@ -90,11 +106,24 @@ export function summarizeAppsumo(rawUsers: any[], rawPurchases: any[]): AppsumoS
     const tier = tierFromPlanCode(u?.plan)
     if (!tier) continue
     const row = rows.get(tier)!
-    tierByUser.set(String(u._id ?? u.id), tier)
+    const userId = String(u._id ?? u.id)
+    const remaining = Number(u?.balances?.appsumo ?? u?.appsumo_balance ?? 0) || 0
+    tierByUser.set(userId, tier)
     row.userCount += 1
     row.creditsAllocated += row.credits
     row.dailyCapTotal += row.dailyCap
-    row.creditsRemaining += Number(u?.balances?.appsumo ?? u?.appsumo_balance ?? 0) || 0
+    row.creditsRemaining += remaining
+    userRows.set(userId, {
+      userId,
+      fullName: String(u?.full_name ?? ''),
+      email: String(u?.email ?? ''),
+      tier,
+      creditsAllocated: row.credits,
+      creditsRemaining: remaining,
+      amountPaid: null,
+      createdAt: u?.createdAt ? String(u.createdAt) : null,
+      lastSeen: u?.lastSeen ? String(u.lastSeen) : null
+    })
   }
 
   const paidUsers = new Set<string>()
@@ -106,7 +135,10 @@ export function summarizeAppsumo(rawUsers: any[], rawPurchases: any[]): AppsumoS
     const tier = tierByUser.get(userId)
     if (!tier) continue
     const row = rows.get(tier)!
-    row.amountPaid += Number(p?.amountPaid ?? p?.amount ?? 0) || 0
+    const amount = Number(p?.amountPaid ?? p?.amount ?? 0) || 0
+    row.amountPaid += amount
+    const userRow = userRows.get(userId)!
+    userRow.amountPaid = (userRow.amountPaid ?? 0) + amount
     if (!paidUsers.has(userId)) {
       paidUsers.add(userId)
       row.usersWithPurchase += 1
@@ -133,5 +165,10 @@ export function summarizeAppsumo(rawUsers: any[], rawPurchases: any[]): AppsumoS
     }
   )
 
-  return { tiers, totals }
+  // Highest tier first, then newest licence holder.
+  const users = Array.from(userRows.values()).sort(
+    (a, b) => b.tier - a.tier || String(b.createdAt).localeCompare(String(a.createdAt))
+  )
+
+  return { tiers, users, totals }
 }

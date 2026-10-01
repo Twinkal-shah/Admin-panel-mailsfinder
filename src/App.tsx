@@ -16,6 +16,7 @@ const UserDetail = lazy(() => import('./pages/UserDetail'))
 const CMSLite = lazy(() => import('./pages/CMSLite'))
 const ApiKeys = lazy(() => import('./pages/ApiKeys'))
 const AuditLogs = lazy(() => import('./pages/AuditLogs'))
+const Appsumo = lazy(() => import('./pages/Appsumo'))
 
 function ProtectedRoute({ children }: { children: JSX.Element }) {
   const { isAuthenticated } = useAuthStore()
@@ -101,6 +102,7 @@ export default function App() {
           <Route index element={<Suspense fallback={<RouteFallback />}><Dashboard /></Suspense>} />
           <Route path="users" element={<Suspense fallback={<RouteFallback />}><UsersList /></Suspense>} />
           <Route path="users/:id" element={<Suspense fallback={<RouteFallback />}><UserDetail /></Suspense>} />
+          <Route path="appsumo" element={<Suspense fallback={<RouteFallback />}><Appsumo /></Suspense>} />
           <Route path="content" element={<Suspense fallback={<RouteFallback />}><CMSLite /></Suspense>} />
           <Route path="apikeys" element={<Suspense fallback={<RouteFallback />}><ApiKeys /></Suspense>} />
           <Route path="audit" element={<Suspense fallback={<RouteFallback />}><AuditLogs /></Suspense>} />
