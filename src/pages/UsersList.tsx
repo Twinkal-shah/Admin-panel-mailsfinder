@@ -123,8 +123,9 @@ export default function UsersList() {
       if (filters.email_verified !== undefined && filters.email_verified !== 'all' && u.email_verified !== filters.email_verified) return false
       if (filters.subscription_status && filters.subscription_status !== 'all' && u.subscription_status !== filters.subscription_status) return false
       if (filters.country && u.country !== filters.country) return false
-      if (filters.createdFrom && !dayjs(u.createdAt).isAfter(dayjs(filters.createdFrom))) return false
-      if (filters.createdTo && !dayjs(u.createdAt).isBefore(dayjs(filters.createdTo))) return false
+      // UTC day bounds, matching the dashboard: [createdFrom, createdTo).
+      if (filters.createdFrom && dayjs.utc(u.createdAt).isBefore(dayjs.utc(filters.createdFrom))) return false
+      if (filters.createdTo && !dayjs.utc(u.createdAt).isBefore(dayjs.utc(filters.createdTo))) return false
       return true
     })
   }, [users, filters])
@@ -209,7 +210,7 @@ export default function UsersList() {
     { title: 'Last seen', dataIndex: 'lastSeen', key: 'lastSeen',
       render: (d) => d ? dayjs(d).format('YYYY-MM-DD') : '-' },
     { title: 'CreatedAt', dataIndex: 'createdAt', key: 'createdAt',
-      render: (d) => dayjs(d).format('YYYY-MM-DD') },
+      render: (d) => dayjs.utc(d).format('YYYY-MM-DD') },
     {
       title: 'Actions',
       key: 'actions',
@@ -536,14 +537,16 @@ export default function UsersList() {
           <Form.Item label="Created range">
             <DatePicker.RangePicker
               value={[
-                filters.createdFrom ? dayjs(filters.createdFrom) : null,
-                filters.createdTo ? dayjs(filters.createdTo) : null
+                filters.createdFrom ? dayjs(dayjs.utc(filters.createdFrom).format('YYYY-MM-DD')) : null,
+                filters.createdTo ? dayjs(dayjs.utc(filters.createdTo).subtract(1, 'day').format('YYYY-MM-DD')) : null
               ] as any}
               onChange={(range) => {
+                // The picked calendar dates are read as UTC days; createdTo is
+                // the exclusive start of the UTC day after the last one picked.
                 setFilters(f => ({
                   ...f,
-                  createdFrom: range && range[0] ? range[0].startOf('day').toISOString() : undefined,
-                  createdTo: range && range[1] ? range[1].endOf('day').toISOString() : undefined
+                  createdFrom: range && range[0] ? dayjs.utc(range[0].format('YYYY-MM-DD')).toISOString() : undefined,
+                  createdTo: range && range[1] ? dayjs.utc(range[1].format('YYYY-MM-DD')).add(1, 'day').toISOString() : undefined
                 }))
               }}
               style={{ width: isMobile ? '100%' : 280 }}
