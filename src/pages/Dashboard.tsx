@@ -11,7 +11,8 @@ import {
   RiseOutlined,
   HistoryOutlined,
   BarChartOutlined,
-  PieChartOutlined
+  PieChartOutlined,
+  GiftOutlined
 } from '@ant-design/icons'
 import DateFilter, { DateRange, DatePreset } from '../components/DateFilter'
 import PageHeader from '../components/PageHeader'
@@ -22,6 +23,7 @@ import { ChartSkeleton, DonutSkeleton, ListSkeleton, TableSkeleton } from '../co
 import { DashboardUserCreditUsage, useDashboardData } from '../store/dashboard'
 import { PLAN_DISPLAY_NAME, Plan } from '../types/types'
 import { PLAN_COLORS, PLAN_ORDER } from '../ui/planTheme'
+import { AppsumoTierRow } from '../utils/appsumo'
 import dayjs from 'dayjs'
 
 // Recharts is ~400KB of the bundle and nothing above the fold needs it, so it
@@ -59,6 +61,32 @@ function activityColor(type: string): string | undefined {
   return ACTIVITY_COLORS[String(type).toLowerCase()]
 }
 
+/**
+ * Amount paid is only as good as the purchase records behind it, so say how
+ * many of the tier's users actually matched one instead of implying full
+ * coverage.
+ */
+function AppsumoPaidCell({ amount, matched, users }: { amount: number; matched: number; users: number }) {
+  if (users === 0) return <span className="mf-cell-muted">—</span>
+  if (matched === 0) {
+    return (
+      <Tooltip title="No AppSumo purchase record matched these users">
+        <span className="mf-cell-muted">—</span>
+      </Tooltip>
+    )
+  }
+  return (
+    <div className="mf-cell-stack mf-cell-stack--end">
+      <span className="mf-num">{money(amount)}</span>
+      {matched < users && (
+        <span className="mf-cell-stack__secondary">
+          {compact(matched)} of {compact(users)} users matched
+        </span>
+      )}
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const [range, setRange] = useState<DateRange & { preset: DatePreset }>(() => {
     const now = dayjs.utc()
@@ -72,6 +100,7 @@ export default function Dashboard() {
   const {
     metrics,
     userCreditUsage,
+    appsumo,
     initialLoading,
     refreshing,
     error,
@@ -158,6 +187,62 @@ export default function Dashboard() {
           ) : (
             <span className="mf-cell-muted">—</span>
           )
+      }
+    ],
+    []
+  )
+
+  const appsumoColumns = useMemo(
+    () => [
+      {
+        title: 'Tier',
+        dataIndex: 'label',
+        key: 'label',
+        render: (label: string) => <span className="mf-cell-strong">{label}</span>
+      },
+      {
+        title: 'Users',
+        dataIndex: 'userCount',
+        key: 'userCount',
+        align: 'right' as const,
+        render: (value: number) => <span className="mf-num">{compact(value)}</span>
+      },
+      {
+        title: 'Credits / user',
+        dataIndex: 'credits',
+        key: 'credits',
+        align: 'right' as const,
+        render: (value: number) => <span className="mf-num mf-num--muted">{compact(value)}</span>
+      },
+      {
+        title: 'Credits allocated',
+        dataIndex: 'creditsAllocated',
+        key: 'creditsAllocated',
+        align: 'right' as const,
+        render: (value: number) => <span className="mf-num">{compact(value)}</span>
+      },
+      {
+        title: 'Daily cap / user',
+        dataIndex: 'dailyCap',
+        key: 'dailyCap',
+        align: 'right' as const,
+        render: (value: number) => <span className="mf-num mf-num--muted">{compact(value)}</span>
+      },
+      {
+        title: 'Credits remaining',
+        dataIndex: 'creditsRemaining',
+        key: 'creditsRemaining',
+        align: 'right' as const,
+        render: (value: number) => <span className="mf-num mf-num--muted">{compact(value)}</span>
+      },
+      {
+        title: 'Amount paid',
+        dataIndex: 'amountPaid',
+        key: 'amountPaid',
+        align: 'right' as const,
+        render: (_: number, row: AppsumoTierRow) => (
+          <AppsumoPaidCell amount={row.amountPaid} matched={row.usersWithPurchase} users={row.userCount} />
+        )
       }
     ],
     []
@@ -356,6 +441,69 @@ export default function Dashboard() {
               )}
             </SectionCard>
           </div>
+
+          <SectionCard
+            title="AppSumo"
+            description="Lifetime licences by tier. Credits allocated is users × the tier's one-time grant; amount paid comes from matched AppSumo purchase records."
+            extra={<Tag className="mf-range-tag">All time</Tag>}
+            noPadding
+          >
+            {initialLoading ? (
+              <div className="mf-card__body-pad">
+                <TableSkeleton rows={4} cols={7} />
+              </div>
+            ) : (
+              <Table<AppsumoTierRow>
+                className="mf-table"
+                rowKey="tier"
+                dataSource={appsumo?.tiers ?? []}
+                columns={appsumoColumns}
+                size="middle"
+                scroll={{ x: 'max-content' }}
+                pagination={false}
+                summary={() => {
+                  const t = appsumo?.totals
+                  if (!t) return null
+                  return (
+                    <Table.Summary.Row className="mf-table__total">
+                      <Table.Summary.Cell index={0}>
+                        <span className="mf-cell-strong">All tiers</span>
+                      </Table.Summary.Cell>
+                      <Table.Summary.Cell index={1} align="right">
+                        <span className="mf-num">{compact(t.userCount)}</span>
+                      </Table.Summary.Cell>
+                      <Table.Summary.Cell index={2} align="right">
+                        <span className="mf-cell-muted">—</span>
+                      </Table.Summary.Cell>
+                      <Table.Summary.Cell index={3} align="right">
+                        <span className="mf-num">{compact(t.creditsAllocated)}</span>
+                      </Table.Summary.Cell>
+                      <Table.Summary.Cell index={4} align="right">
+                        <Tooltip title="Combined daily cap across all AppSumo users">
+                          <span className="mf-num mf-num--muted">{compact(t.dailyCapTotal)}</span>
+                        </Tooltip>
+                      </Table.Summary.Cell>
+                      <Table.Summary.Cell index={5} align="right">
+                        <span className="mf-num mf-num--muted">{compact(t.creditsRemaining)}</span>
+                      </Table.Summary.Cell>
+                      <Table.Summary.Cell index={6} align="right">
+                        <AppsumoPaidCell
+                          amount={t.amountPaid}
+                          matched={t.usersWithPurchase}
+                          users={t.userCount}
+                        />
+                      </Table.Summary.Cell>
+                    </Table.Summary.Row>
+                  )
+                }}
+                locale={{
+                  emptyText: (
+                    <EmptyState compact icon={<GiftOutlined />} title="No AppSumo data" />
+                  )
+                }}
+              />
+            )}
+          </SectionCard>
 
           <SectionCard
             title="Credits used by user"

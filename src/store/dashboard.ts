@@ -4,6 +4,7 @@ import { ApiKey, AuditRow, Plan, Purchase, User, normalizePlan } from '../types/
 import { mapApiKey, mapUser } from '../utils/mappers'
 import { useDataStore } from './data'
 import { apiFetch } from '../utils/api'
+import { AppsumoSummary, summarizeAppsumo } from '../utils/appsumo'
 
 export interface DashboardUserCreditUsage {
   userId: string
@@ -31,6 +32,7 @@ export interface DashboardMetrics {
 interface BootstrapResult {
   metrics: DashboardMetrics | null
   userCreditUsage: DashboardUserCreditUsage[]
+  appsumo: AppsumoSummary
   store: {
     users: User[]
     purchases: Purchase[]
@@ -78,6 +80,10 @@ function parseBootstrap(body: any, durationMs: number): BootstrapResult {
   return {
     metrics: body?.metrics ?? null,
     userCreditUsage,
+    appsumo: summarizeAppsumo(
+      Array.isArray(body?.users) ? body.users : [],
+      Array.isArray(body?.purchases) ? body.purchases : []
+    ),
     store: {
       users: Array.isArray(body?.users) ? body.users.map(mapUser) : [],
       purchases,
@@ -129,6 +135,8 @@ async function fetchBootstrap(from: string, to: string): Promise<BootstrapResult
 export interface UseDashboardData {
   metrics: DashboardMetrics | null
   userCreditUsage: DashboardUserCreditUsage[]
+  /** All-time AppSumo breakdown; not narrowed by the date range. */
+  appsumo: AppsumoSummary | null
   /** True only when there is nothing at all to show yet. */
   initialLoading: boolean
   /** True while a background revalidation is running over existing data. */
@@ -214,6 +222,7 @@ export function useDashboardData(fromIso: string, toIso: string): UseDashboardDa
   return {
     metrics: snapshot?.metrics ?? null,
     userCreditUsage: snapshot?.userCreditUsage ?? [],
+    appsumo: snapshot?.appsumo ?? null,
     initialLoading: !snapshot && refreshing,
     refreshing,
     error,
