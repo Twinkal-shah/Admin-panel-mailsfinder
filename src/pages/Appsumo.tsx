@@ -14,6 +14,7 @@ import PageHeader from '../components/PageHeader'
 import SectionCard from '../components/SectionCard'
 import StatCard from '../components/StatCard'
 import EmptyState from '../components/EmptyState'
+import AppsumoRefunds from '../components/AppsumoRefunds'
 import { TableSkeleton } from '../components/skeletons'
 import { useDashboardData } from '../store/dashboard'
 import { AppsumoTierRow, AppsumoUserRow } from '../utils/appsumo'
@@ -338,6 +339,8 @@ export default function Appsumo() {
           </SectionCard>
         </>
       )}
+
+      <AppsumoRefunds />
     </div>
   )
 }
