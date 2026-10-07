@@ -4,7 +4,7 @@ import { ApiKey, AuditRow, Plan, Purchase, User, normalizePlan } from '../types/
 import { mapApiKey, mapUser } from '../utils/mappers'
 import { useDataStore } from './data'
 import { apiFetch } from '../utils/api'
-import { AppsumoSummary, summarizeAppsumo } from '../utils/appsumo'
+import { AppsumoSummary, appsumoRevenueInRange, summarizeAppsumo } from '../utils/appsumo'
 
 export interface DashboardUserCreditUsage {
   userId: string
@@ -33,6 +33,8 @@ interface BootstrapResult {
   metrics: DashboardMetrics | null
   userCreditUsage: DashboardUserCreditUsage[]
   appsumo: AppsumoSummary
+  /** AppSumo part of metrics.totalRevenue for the requested range. */
+  appsumoRevenue: number
   store: {
     users: User[]
     purchases: Purchase[]
@@ -43,7 +45,11 @@ interface BootstrapResult {
   durationMs: number
 }
 
-function parseBootstrap(body: any, durationMs: number): BootstrapResult {
+function parseBootstrap(
+  body: any,
+  durationMs: number,
+  range: { from: string; to: string }
+): BootstrapResult {
   const purchases: Purchase[] = Array.isArray(body?.purchases)
     ? body.purchases.map((p: any): Purchase => {
         const statusRaw: string = p.paymentStatus ?? p.status ?? 'paid'
@@ -84,6 +90,11 @@ function parseBootstrap(body: any, durationMs: number): BootstrapResult {
       Array.isArray(body?.users) ? body.users : [],
       Array.isArray(body?.purchases) ? body.purchases : []
     ),
+    appsumoRevenue: appsumoRevenueInRange(
+      Array.isArray(body?.purchases) ? body.purchases : [],
+      range.from,
+      range.to
+    ),
     store: {
       users: Array.isArray(body?.users) ? body.users.map(mapUser) : [],
       purchases,
@@ -121,7 +132,7 @@ async function fetchBootstrap(from: string, to: string): Promise<BootstrapResult
     const res = await apiFetch(`/api/admin/dashboard/bootstrap?${params.toString()}`)
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const body = await res.json()
-    const parsed = parseBootstrap(body, Math.round(performance.now() - started))
+    const parsed = parseBootstrap(body, Math.round(performance.now() - started), { from, to })
     cache.set(key, parsed)
     return parsed
   })().finally(() => {
@@ -137,6 +148,8 @@ export interface UseDashboardData {
   userCreditUsage: DashboardUserCreditUsage[]
   /** All-time AppSumo breakdown; not narrowed by the date range. */
   appsumo: AppsumoSummary | null
+  /** AppSumo part of metrics.totalRevenue for this range; null until loaded. */
+  appsumoRevenue: number | null
   /** True only when there is nothing at all to show yet. */
   initialLoading: boolean
   /** True while a background revalidation is running over existing data. */
@@ -223,6 +236,7 @@ export function useDashboardData(fromIso: string, toIso: string): UseDashboardDa
     metrics: snapshot?.metrics ?? null,
     userCreditUsage: snapshot?.userCreditUsage ?? [],
     appsumo: snapshot?.appsumo ?? null,
+    appsumoRevenue: snapshot?.appsumoRevenue ?? null,
     initialLoading: !snapshot && refreshing,
     refreshing,
     error,

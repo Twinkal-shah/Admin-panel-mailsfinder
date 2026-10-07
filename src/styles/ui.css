@@ -928,6 +928,15 @@ html[data-theme="light"], body[data-theme="light"] {
   margin-top: auto;
   min-height: 20px;
 }
+.mf-revenue-source.ant-segmented {
+  font-size: 11.5px;
+  padding: 1px;
+}
+.mf-revenue-source .ant-segmented-item-label {
+  min-height: 20px;
+  line-height: 20px;
+  padding: 0 8px;
+}
 .mf-stat__hint.ant-typography {
   font-size: 11.5px;
   color: var(--mf-text-secondary);

@@ -73,6 +73,36 @@ function isAppsumoPurchasePlan(raw: unknown): boolean {
 }
 
 /**
+ * AppSumo share of the dashboard's "Total revenue" for a date range.
+ *
+ * Mirrors the backend's totalRevenue filter (admin.dashboard.service.ts):
+ * `paymentStatus === "paid"`, `countsAsRevenue !== false`, and paymentDate
+ * from `from` 00:00:00.000 UTC through `to` 23:59:59.999 UTC. The bootstrap
+ * rows don't carry `countsAsRevenue`, but the AppSumo service always writes
+ * it as true, so every row matched here is inside the backend's total — which
+ * is what makes `total - appsumo` the LemonSqueezy share with nothing counted
+ * twice.
+ *
+ * Reads the RAW purchases: the store's mapper turns unknown statuses (e.g.
+ * "failed") into "paid".
+ */
+export function appsumoRevenueInRange(rawPurchases: any[], from: string, to: string): number {
+  const start = Date.parse(`${from}T00:00:00.000Z`)
+  const end = Date.parse(`${to}T23:59:59.999Z`)
+  let cents = 0
+  for (const p of rawPurchases) {
+    if (String(p?.paymentStatus ?? p?.status ?? '').toLowerCase() !== 'paid') continue
+    if (p?.countsAsRevenue === false) continue
+    if (!isAppsumoPurchasePlan(p?.planName ?? p?.plan_name)) continue
+    const at = Date.parse(String(p?.paymentDate ?? p?.date ?? ''))
+    if (!Number.isFinite(at) || at < start || at > end) continue
+    // Sum in cents so $29 + $120.10 doesn't drift into float noise.
+    cents += Math.round((Number(p?.amountPaid ?? p?.amount ?? 0) || 0) * 100)
+  }
+  return cents / 100
+}
+
+/**
  * Build the AppSumo breakdown from the raw bootstrap payload.
  *
  * Reads the RAW users/purchases rather than the mapped store rows, because

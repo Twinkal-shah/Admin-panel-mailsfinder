@@ -11,6 +11,8 @@ export interface StatCardProps {
   /** Percentage change. Positive renders as an up pill, negative as down. */
   delta?: number
   loading?: boolean
+  /** Extra control in the footer row, e.g. a small source switch. */
+  footer?: ReactNode
 }
 
 function DeltaPill({ delta }: { delta: number }) {
@@ -23,7 +25,7 @@ function DeltaPill({ delta }: { delta: number }) {
   )
 }
 
-export default function StatCard({ label, value, hint, icon, delta, loading }: StatCardProps) {
+export default function StatCard({ label, value, hint, icon, delta, loading, footer }: StatCardProps) {
   if (loading) {
     return (
       <div className="mf-stat mf-stat--loading" aria-busy="true">
@@ -47,6 +49,7 @@ export default function StatCard({ label, value, hint, icon, delta, loading }: S
       <div className="mf-stat__foot">
         {delta !== undefined && Number.isFinite(delta) && <DeltaPill delta={delta} />}
         {hint && <Typography.Text className="mf-stat__hint">{hint}</Typography.Text>}
+        {footer}
       </div>
     </div>
   )

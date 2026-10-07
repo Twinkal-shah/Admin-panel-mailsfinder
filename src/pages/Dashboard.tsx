@@ -1,5 +1,5 @@
 import { Suspense, lazy, useMemo, useState } from 'react'
-import { Alert, Button, Table, Tag, Tooltip, Typography } from 'antd'
+import { Alert, Button, Segmented, Table, Tag, Tooltip, Typography } from 'antd'
 import {
   ReloadOutlined,
   TeamOutlined,
@@ -49,6 +49,9 @@ function money(n: number): string {
   })}`
 }
 
+type RevenueSource = 'All' | 'LS' | 'AppSumo'
+const REVENUE_SOURCES: RevenueSource[] = ['All', 'LS', 'AppSumo']
+
 const ACTIVITY_COLORS: Record<string, string> = {
   signup: 'blue',
   purchase: 'green',
@@ -69,9 +72,12 @@ export default function Dashboard() {
     }
   })
 
+  const [revenueSource, setRevenueSource] = useState<RevenueSource>('All')
+
   const {
     metrics,
     userCreditUsage,
+    appsumoRevenue,
     initialLoading,
     refreshing,
     error,
@@ -81,6 +87,18 @@ export default function Dashboard() {
   } = useDashboardData(range.from, range.to)
 
   const selectedRangeLabel = formatRangeLabel(range)
+
+  // "All" is the backend's totalRevenue, untouched. AppSumo is the slice of it
+  // that came from AppSumo purchases (see appsumoRevenueInRange), and LS is the
+  // rest, so LS + AppSumo always equals All for the same range.
+  const totalRevenue = Number(metrics?.totalRevenue ?? 0)
+  const appsumoPart = appsumoRevenue ?? 0
+  const revenueValue =
+    revenueSource === 'AppSumo'
+      ? appsumoPart
+      : revenueSource === 'LS'
+      ? Math.round((totalRevenue - appsumoPart) * 100) / 100
+      : totalRevenue
 
   const usersByPlan = useMemo(() => {
     const map = new Map<string, number>(
@@ -277,9 +295,22 @@ export default function Dashboard() {
             />
             <StatCard
               label="Total revenue"
-              value={money(metrics?.totalRevenue ?? 0)}
+              value={money(revenueValue)}
               icon={<DollarOutlined />}
               loading={initialLoading}
+              footer={
+                <Segmented
+                  size="small"
+                  className="mf-revenue-source"
+                  value={revenueSource}
+                  onChange={v => setRevenueSource(v as RevenueSource)}
+                  options={REVENUE_SOURCES.map(s => ({
+                    value: s,
+                    label:
+                      s === 'LS' ? <Tooltip title="LemonSqueezy">LS</Tooltip> : s
+                  }))}
+                />
+              }
             />
             <StatCard
               label="Total credits used"
