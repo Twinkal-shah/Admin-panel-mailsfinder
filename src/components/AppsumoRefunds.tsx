@@ -19,6 +19,12 @@ interface RefundRow {
   userEmail: string
   /** "deleted": the account is gone. "not_activated": refunded before redemption. */
   userState: 'ok' | 'deleted' | 'not_activated'
+  /**
+   * Paid for this licence, including earlier keys in its upgrade chain. Null
+   * when no purchase record matched; absent from older backends.
+   */
+  amountPaid?: number | null
+  currency?: string | null
 }
 
 interface ListResponse {
@@ -35,6 +41,17 @@ function copyToClipboard(text: string) {
     ?.writeText(text)
     .then(() => message.success('Copied'))
     .catch(() => message.error('Copy failed'))
+}
+
+function formatMoney(amount: number, currency?: string | null): string {
+  const code = (currency || 'USD').toUpperCase()
+  const digits = Number.isInteger(amount) ? 0 : 2
+  const value = amount.toLocaleString(undefined, {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits
+  })
+  // "$49" like the rest of the panel; spell out anything that isn't USD.
+  return code === 'USD' ? `$${value}` : `${code} ${value}`
 }
 
 /**
@@ -174,14 +191,31 @@ export default function AppsumoRefunds() {
           )
       },
       {
+        title: 'Amount paid',
+        dataIndex: 'amountPaid',
+        key: 'amountPaid',
+        align: 'right' as const,
+        width: 130,
+        render: (amount: number | null | undefined, row) =>
+          amount == null ? (
+            <Tooltip title="No AppSumo purchase record matched this licence">
+              <span className="mf-cell-muted">—</span>
+            </Tooltip>
+          ) : (
+            <Tooltip title="What the buyer paid, including earlier upgrade steps. The amount AppSumo refunded may differ.">
+              <span className="mf-num">{formatMoney(amount, row.currency)}</span>
+            </Tooltip>
+          )
+      },
+      {
         title: 'Refund date',
         dataIndex: 'refundedAt',
         key: 'refundedAt',
-        width: 170,
+        width: 130,
         render: (value: string | null) =>
           value ? (
-            <Tooltip title={dayjs(value).fromNow()}>
-              <span className="mf-cell-strong">{dayjs(value).format('MMM D, YYYY HH:mm')}</span>
+            <Tooltip title={`${dayjs(value).format('MMM D, YYYY HH:mm')} · ${dayjs(value).fromNow()}`}>
+              <span className="mf-cell-strong">{dayjs(value).format('MMM D, YYYY')}</span>
             </Tooltip>
           ) : (
             <span className="mf-cell-muted">—</span>
