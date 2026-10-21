@@ -54,6 +54,9 @@ export default function UsersList() {
   const [loading, setLoading] = useState<boolean>(false)
   const [backendError, setBackendError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | undefined>(undefined)
+  const [statusBusyId, setStatusBusyId] = useState<string | undefined>(undefined)
+  const [blockTarget, setBlockTarget] = useState<User | null>(null)
+  const [blockReason, setBlockReason] = useState('')
   const [addCreditsConfirming, setAddCreditsConfirming] = useState(false)
   const [editSaving, setEditSaving] = useState(false)
   const [recentlyUpdatedIds, setRecentlyUpdatedIds] = useState<Set<string>>(new Set())
@@ -158,6 +161,55 @@ export default function UsersList() {
     )
   }
 
+  /**
+   * Block or unblock one account through the audited admin endpoint. Only the status
+   * fields change on the backend, so the row is simply replaced with the server's copy.
+   */
+  async function setAccountStatus(user: User, status: 'active' | 'blocked', reason?: string): Promise<boolean> {
+    setStatusBusyId(user.id)
+    try {
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8000' : 'https://api.mailsfinder.com')
+      const bearer = token || localStorage.getItem('ADMIN_TOKEN') || ''
+      const res = await axios.patch(
+        `${API_BASE_URL}/api/admin/userManagement/users/${user.id}/status`,
+        reason ? { account_status: status, reason } : { account_status: status },
+        {
+          headers: { Authorization: bearer ? `Bearer ${bearer}` : '', 'Content-Type': 'application/json', Accept: 'application/json' },
+          validateStatus: () => true
+        }
+      )
+      if (res.status !== 200 || res.data?.success === false) {
+        message.error(res.data?.message || `HTTP ${res.status}`)
+        return false
+      }
+      const u = res.data?.data || res.data
+      if (u && (u._id || u.id)) {
+        const updated = mapUser(u)
+        setAll({ users: users.map(orig => (orig.id === updated.id ? updated : orig)) })
+      }
+      message.success(status === 'blocked' ? 'Account blocked' : 'Account unblocked')
+      return true
+    } catch (e: any) {
+      message.error(e?.message || 'Request failed')
+      return false
+    } finally {
+      setStatusBusyId(undefined)
+    }
+  }
+
+  async function confirmBlock() {
+    if (!blockTarget) return
+    if (!blockReason.trim()) {
+      message.error('Reason is required')
+      return
+    }
+    const ok = await setAccountStatus(blockTarget, 'blocked', blockReason.trim())
+    if (ok) {
+      setBlockTarget(null)
+      setBlockReason('')
+    }
+  }
+
   const columns: ColumnsType<User> = [
     { title: 'Name', dataIndex: 'full_name', key: 'name',
       render: (text, record) => (
@@ -226,7 +278,7 @@ export default function UsersList() {
       // This table always scrolls horizontally (scroll.x = max-content), which
       // otherwise pushed Edit/Delete off the right edge.
       fixed: 'right',
-      width: 150,
+      width: 230,
       render: (_, record) => (
         <div style={{ display: 'flex', gap: 8 }}>
           <Button
@@ -236,6 +288,32 @@ export default function UsersList() {
           >
             Edit
           </Button>
+          {record.account_status === 'blocked' ? (
+            <Button
+              size="small"
+              disabled={!hasScope(admin.role, 'users.write') || statusBusyId === record.id}
+              loading={statusBusyId === record.id}
+              onClick={() => Modal.confirm({
+                title: 'Unblock account',
+                content: `${record.email} will be able to sign in and use the app again. Plan, credits and keys were never changed by the block.`,
+                okText: 'Unblock',
+                className: 'mf-modal',
+                onOk: () => setAccountStatus(record, 'active')
+              })}
+            >
+              Unblock
+            </Button>
+          ) : (
+            <Button
+              size="small"
+              danger
+              disabled={!hasScope(admin.role, 'users.write') || statusBusyId === record.id}
+              loading={statusBusyId === record.id}
+              onClick={() => { setBlockReason(''); setBlockTarget(record) }}
+            >
+              Block
+            </Button>
+          )}
           <Button
             size="small"
             danger
@@ -643,6 +721,31 @@ export default function UsersList() {
         )}
       </SectionCard>
 
+      <Modal
+        title={blockTarget ? `Block ${blockTarget.email}` : 'Block account'}
+        open={!!blockTarget}
+        onCancel={() => { setBlockTarget(null); setBlockReason('') }}
+        onOk={confirmBlock}
+        okText="Block"
+        okButtonProps={{ danger: true, loading: !!blockTarget && statusBusyId === blockTarget.id }}
+        className="modal-danger mf-modal"
+      >
+        <Typography.Paragraph>
+          The user will be refused at login, token refresh, and every API and app request, and this address cannot be registered again.
+          Credits, plan, purchases and API keys are left untouched, so the block can be reversed with Unblock.
+        </Typography.Paragraph>
+        <Form layout="vertical">
+          <Form.Item label="Reason (recorded in the audit log)" required>
+            <Input.TextArea
+              rows={3}
+              maxLength={500}
+              value={blockReason}
+              onChange={(e) => setBlockReason(e.target.value)}
+              placeholder="e.g. free-credit farming — duplicate accounts"
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
       <Modal
         title="Add credits (bulk)"
         open={addCreditsOpen}
