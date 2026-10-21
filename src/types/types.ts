@@ -123,6 +123,10 @@ export interface User {
   billing_cycle?: 'none' | 'monthly' | 'annual'
   subscription_status: SubscriptionStatus
   email_verified: boolean
+  /** Admin block. Absent / "active" on every account that was never blocked. */
+  account_status?: 'active' | 'blocked'
+  blocked_at?: string | null
+  blocked_reason?: string | null
   admin_notes?: string
   monthly_balance?: number
   lifetime_balance?: number

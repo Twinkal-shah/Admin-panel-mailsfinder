@@ -39,6 +39,8 @@ export default function UserDetail() {
   const [rateLimit, setRateLimit] = useState<number>(60)
   const [notes, setNotes] = useState<string>(user?.admin_notes || '')
   const [notesSaving, setNotesSaving] = useState(false)
+  const [blockModal, setBlockModal] = useState<{ open: boolean; reason: string }>({ open: false, reason: '' })
+  const [statusLoading, setStatusLoading] = useState(false)
   const [creditsLoading, setCreditsLoading] = useState(false)
   const [createLoading, setCreateLoading] = useState(false)
   const isDarkMode = useIsDark()
@@ -204,6 +206,46 @@ export default function UserDetail() {
     }, 300)
   }
 
+  /**
+   * Block or unblock this one account via PATCH /users/:id/status. The backend writes the
+   * audit row and refuses the user at every login and request path; nothing else on the
+   * account changes, so unblocking is a complete restore.
+   */
+  async function setAccountStatus(status: 'active' | 'blocked', reason?: string) {
+    if (!user) return
+    setStatusLoading(true)
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/userManagement/users/${user.id}/status`, {
+        method: 'PATCH',
+        headers: authHeaders(),
+        body: JSON.stringify(reason ? { account_status: status, reason } : { account_status: status })
+      })
+      const body = await res.json().catch(() => ({} as any))
+      if (!res.ok || body?.success === false) {
+        message.error(body?.message || `HTTP ${res.status}`)
+        return false
+      }
+      const fresh = body?.data ?? body
+      if (fresh && (fresh._id || fresh.id)) replaceUser(mapUser(fresh))
+      message.success(status === 'blocked' ? 'Account blocked' : 'Account unblocked')
+      return true
+    } catch (e: any) {
+      message.error(e?.message || 'Request failed')
+      return false
+    } finally {
+      setStatusLoading(false)
+    }
+  }
+
+  async function confirmBlock() {
+    if (!blockModal.reason.trim()) {
+      message.error('Reason is required')
+      return
+    }
+    const ok = await setAccountStatus('blocked', blockModal.reason.trim())
+    if (ok) setBlockModal({ open: false, reason: '' })
+  }
+
   async function saveNotes() {
     if (!user) return
     setNotesSaving(true)
@@ -289,9 +331,71 @@ export default function UserDetail() {
         title={user.full_name || 'User Detail'}
         subtitle={user.email}
         actions={
-          <Button onClick={() => navigate('/users')}>Back to Users</Button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {user.account_status === 'blocked' ? (
+              <Button
+                disabled={!hasScope(admin.role, 'users.write')}
+                loading={statusLoading}
+                onClick={() => Modal.confirm({
+                  title: 'Unblock account',
+                  content: 'The user can sign in and use the app again. Plan, credits and keys were never changed by the block.',
+                  okText: 'Unblock',
+                  className: 'mf-modal',
+                  onOk: () => setAccountStatus('active')
+                })}
+              >
+                Unblock account
+              </Button>
+            ) : (
+              <Button
+                danger
+                disabled={!hasScope(admin.role, 'users.write')}
+                loading={statusLoading}
+                onClick={() => setBlockModal({ open: true, reason: '' })}
+              >
+                Block account
+              </Button>
+            )}
+            <Button onClick={() => navigate('/users')}>Back to Users</Button>
+          </div>
         }
       />
+
+      {user.account_status === 'blocked' && (
+        <div style={{ marginBottom: 16 }}>
+          <Tag color="error" style={{ borderRadius: 999 }}>Blocked</Tag>
+          <Typography.Text type="secondary" style={{ marginLeft: 8 }}>
+            {user.blocked_at ? `since ${dayjs(user.blocked_at).format('YYYY-MM-DD HH:mm')}` : ''}
+            {user.blocked_reason ? ` — ${user.blocked_reason}` : ''}
+          </Typography.Text>
+        </div>
+      )}
+
+      <Modal
+        title="Block account"
+        open={blockModal.open}
+        onCancel={() => setBlockModal({ open: false, reason: '' })}
+        onOk={confirmBlock}
+        okText="Block"
+        okButtonProps={{ danger: true, loading: statusLoading }}
+        className="modal-danger mf-modal"
+      >
+        <Typography.Paragraph>
+          The user will be refused at login, token refresh, and every API and app request, and this address cannot be registered again.
+          Credits, plan, purchases and API keys are left untouched, so the block can be reversed completely.
+        </Typography.Paragraph>
+        <Form layout="vertical">
+          <Form.Item label="Reason (recorded in the audit log)" required>
+            <Input.TextArea
+              rows={3}
+              maxLength={500}
+              value={blockModal.reason}
+              onChange={(e) => setBlockModal(m => ({ ...m, reason: e.target.value }))}
+              placeholder="e.g. free-credit farming — duplicate accounts"
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
 
       <Row gutter={[16, 16]}>
         <Col xs={24} md={12}>
@@ -302,6 +406,11 @@ export default function UserDetail() {
               <Descriptions.Item label="phone">{user.phone || '-'}</Descriptions.Item>
               <Descriptions.Item label="country">{user.country || '-'}</Descriptions.Item>
               <Descriptions.Item label="onboarding flag">{user.onboarding_flag ? 'true' : 'false'}</Descriptions.Item>
+              <Descriptions.Item label="status">
+                {user.account_status === 'blocked'
+                  ? <Tag color="error" style={{ borderRadius: 999 }}>Blocked</Tag>
+                  : <Tag color="success" style={{ borderRadius: 999 }}>Active</Tag>}
+              </Descriptions.Item>
               <Descriptions.Item label="createdAt">{dayjs(user.createdAt).format('YYYY-MM-DD')}</Descriptions.Item>
             </Descriptions>
           </Card>

@@ -33,12 +33,13 @@ export default function UsersList() {
 
   // Local-page client-side filters (narrow the current server page only)
   const [filters, setFilters] = useState<{
+    account_status?: 'all' | 'active' | 'blocked'
     email_verified?: boolean | 'all'
     subscription_status?: 'active' | 'cancelled' | 'past_due' | 'none' | 'all'
     country?: string
     createdFrom?: string
     createdTo?: string
-  }>(() => ({ email_verified: 'all', subscription_status: 'all' }))
+  }>(() => ({ account_status: 'all', email_verified: 'all', subscription_status: 'all' }))
 
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(50)
@@ -120,6 +121,7 @@ export default function UsersList() {
   // Client-side filters narrow the current server page only.
   const filtered = useMemo(() => {
     return users.filter(u => {
+      if (filters.account_status && filters.account_status !== 'all' && (u.account_status ?? 'active') !== filters.account_status) return false
       if (filters.email_verified !== undefined && filters.email_verified !== 'all' && u.email_verified !== filters.email_verified) return false
       if (filters.subscription_status && filters.subscription_status !== 'all' && u.subscription_status !== filters.subscription_status) return false
       if (filters.country && u.country !== filters.country) return false
@@ -158,7 +160,14 @@ export default function UsersList() {
 
   const columns: ColumnsType<User> = [
     { title: 'Name', dataIndex: 'full_name', key: 'name',
-      render: (text, record) => <Button type="link" onClick={() => navigate(`/users/${record.id}`)}>{text}</Button>
+      render: (text, record) => (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <Button type="link" onClick={() => navigate(`/users/${record.id}`)}>{text}</Button>
+          {record.account_status === 'blocked' && (
+            <Tag color="error" style={{ borderRadius: 999, margin: 0 }} title={record.blocked_reason || undefined}>Blocked</Tag>
+          )}
+        </span>
+      )
     },
     { title: 'Email', dataIndex: 'email', key: 'email' },
     {
@@ -508,6 +517,14 @@ export default function UsersList() {
               ]}
               value={planFilter}
               onChange={(v) => setPlanFilter(v)}
+            />
+          </Form.Item>
+          <Form.Item label="Status">
+            <Select
+              style={{ width: isMobile ? '100%' : 140 }}
+              options={[{ value: 'all', label: 'All' }, { value: 'active', label: 'Active' }, { value: 'blocked', label: 'Blocked' }]}
+              value={filters.account_status}
+              onChange={(v) => setFilters(f => ({ ...f, account_status: v }))}
             />
           </Form.Item>
           <Form.Item label="Email verified">
